@@ -1,0 +1,45 @@
+# =============================================================================
+# Domain: Timeoff
+# Entity: TimeoffType
+# Description: A leave policy/type (annual, sick, maternity, ...). Company-scoped.
+# An employee's per-period TimeoffBalance is allocated against a timeoff type; an
+# approved TimeoffRequest draws it down. Posts NO GL.
+# =============================================================================
+
+models:
+  - name: TimeoffType
+    collection: timeoff_types
+    description: "Leave policy/type (annual, sick, maternity, ...)"
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique timeoff type id"
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK to organization.Company.id"
+      name:
+        type: string
+        attributes: ["@required", "@max(120)"]
+        description: "Leave type name (Annual / Sick / Maternity / ...)"
+      code:
+        type: string?
+        attributes: ["@max(40)"]
+        description: "Stable code (annual/sick/...)"
+      is_paid:
+        type: boolean
+        attributes: ["@default(true)"]
+        description: "Paid leave? (feeds payroll payable-days)"
+      allow_carry_forward:
+        type: boolean
+        attributes: ["@default(false)"]
+        description: "Carry unused balance to next period"
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+    indexes:
+      - type: unique
+        fields: [company_id, code]
+        where: "deleted_at IS NULL"

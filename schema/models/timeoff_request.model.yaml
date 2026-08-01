@@ -1,0 +1,78 @@
+# =============================================================================
+# Domain: Timeoff
+# Entity: TimeoffRequest
+# Description: An employee's leave request over a date range. pending → approved
+# triggers the balance drawdown (custom service, OUT OF SCOPE for codegen — port
+# from backbone-hr's hr_write_service.rs). employee_id / approval_employee_id are
+# cross-module logical FKs to employee.Employee.id; timeoff_type_id is an in-module
+# FK to TimeoffType.id. Posts NO GL.
+# =============================================================================
+
+models:
+  - name: TimeoffRequest
+    collection: timeoff_requests
+    description: "A leave request (pending → approved triggers balance drawdown)"
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique request id"
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK to organization.Company.id"
+      timeoff_type_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(TimeoffType.id)"]
+        description: "The timeoff type requested (in-module FK)"
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The applicant # logical FK to employee.Employee.id"
+      date_start:
+        type: date
+        attributes: ["@required"]
+        description: "First day of leave (inclusive)"
+      date_end:
+        type: date
+        attributes: ["@required"]
+        description: "Last day of leave (inclusive)"
+      note:
+        type: string?
+        attributes: ["@max(1000)"]
+        description: "Applicant note (free-text)"
+      approval_employee_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "Approver # logical FK to employee.Employee.id"
+      note_reject:
+        type: string?
+        attributes: ["@max(1000)"]
+        description: "Rejection reason (free-text)"
+      status:
+        type: TimeoffRequestStatus
+        attributes: ["@required", "@default(pending)"]
+        description: "pending → approved / rejected / cancelled"
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+    indexes:
+      - type: index
+        fields: [company_id, employee_id, date_start]
+      - type: index
+        fields: [status]
+
+enums:
+  - name: TimeoffRequestStatus
+    description: "Timeoff request lifecycle"
+    variants:
+      - name: pending
+        description: "Submitted, awaiting approval"
+        default: true
+      - name: approved
+        description: "Approved — balance drawn down"
+      - name: rejected
+        description: "Rejected — no balance change"
+      - name: cancelled
+        description: "Cancelled — balance restored if it was approved"

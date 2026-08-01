@@ -1,0 +1,57 @@
+# =============================================================================
+# Domain: Timeoff
+# Entity: TimeoffBalance
+# Description: An employee's leave entitlement for one timeoff type in one period.
+# `available = allocated - used`; approving a TimeoffRequest increments `used` (gated
+# so `used + days <= allocated`) — the load-bearing invariant of the module (you
+# cannot approve leave you don't have). Posts NO GL.
+#
+# Invariant backstop: the `@non_negative` attributes below emit column CHECKs
+# (`allocated >= 0`, `used >= 0`) in the generated create-table migration. The
+# cross-field `used <= allocated` CHECK is NOT expressible in schema YAML (the
+# codegen has no `constraints:` block support) — it is added by a hand-authored
+# `*_guards.up.sql` migration, the exact pattern proven in backbone-hr's
+# `20260426220010_leave_balance_guards.up.sql`.
+# =============================================================================
+
+models:
+  - name: TimeoffBalance
+    collection: timeoff_balances
+    description: "An employee's per-period entitlement for one timeoff type (allocated / used)"
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique balance id"
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK to organization.Company.id"
+      timeoff_type_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(TimeoffType.id)"]
+        description: "The timeoff type (in-module FK)"
+      employee_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "The employee # logical FK to employee.Employee.id"
+      period:
+        type: string
+        attributes: ["@required", "@max(10)"]
+        description: "Year or period key (e.g. 2026)"
+      allocated:
+        type: decimal
+        attributes: ["@required", "@precision(18,2)", "@non_negative"]
+        description: "Days allocated"
+      used:
+        type: decimal
+        attributes: ["@required", "@default(0)", "@precision(18,2)", "@non_negative"]
+        description: "Days consumed by approved requests (never exceeds allocated)"
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+    indexes:
+      - type: unique
+        fields: [company_id, employee_id, timeoff_type_id, period]
+        where: "deleted_at IS NULL"

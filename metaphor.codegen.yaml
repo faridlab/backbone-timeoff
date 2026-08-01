@@ -1,0 +1,44 @@
+# Codegen policy for timeoff.
+#
+# `user_owned` globs are hand-written files that live inside generator-owned trees but are
+# NOT schema-derived. `metaphor schema generate [--force]` skips them wholesale (never reads,
+# merges, or deletes them). Everything else in src/ is regenerated from schema/models.
+#
+# Re-exports/declarations that must sit alongside generated code live inside
+# `// <<< CUSTOM ... // END CUSTOM` markers (service/mod.rs, presentation/http/mod.rs, lib.rs)
+# and are preserved by the marker mechanism, not listed here.
+#
+# Add your hand-authored services, handlers, tests, and docs below as you write them.
+
+user_owned:
+  # Hand-authored behavior (services + their HTTP surface). Examples:
+  # - "src/application/service/onboarding_service.rs"
+  # - "src/presentation/http/guarded_routes.rs"
+
+  # User-owned repositories: hold hand-written SQL (the `paid_leave_days` read-port on the request
+  # repo; the draw/restore balance engine on the balance repo). Declared here so `metaphor schema
+  # generate` skips them wholesale — mirrors the backbone-attendance `present_days` convention and
+  # backbone-hr's user-owned leave_application_repository / leave_balance_repository.
+  - "src/infrastructure/persistence/timeoff_request_repository.rs"
+  - "src/infrastructure/persistence/timeoff_balance_repository.rs"
+
+  # Hand-authored leave-drawdown write service (approve/reject/cancel with tx-gated balance draw +
+  # restore). Ported verbatim from backbone-hr's hr_write_service.rs; preserved across regen via the
+  # `*_custom.rs` suffix, but listed here for visibility alongside the repos it depends on.
+  - "src/application/service/timeoff_request_service_custom.rs"
+
+  # CRITICAL: exports/services.rs has the hand-written paid_leave_days trait method.
+  # Without user_owned, regen OVERWRITES it and loses the port.
+  - "src/exports/services.rs"
+  # Hand-written TimeoffQueryService impl (delegates standard lookups + paid_leave_days).
+  - "src/application/service/timeoff_query_service.rs"
+  # ADR-005 consumer: zeroes leave balance on offboarding.closed.
+  - "src/application/service/offboarding_encash_handler.rs"
+
+  # Behavior tests (the golden cases / oracle) + BDD features.
+  - "tests/features/**"
+  # - "tests/*_golden_cases.rs"
+  # - "tests/integrity_probes.rs"
+
+  # Hand-authored module documentation.
+  - "docs/**"
