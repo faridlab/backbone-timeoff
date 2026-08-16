@@ -35,8 +35,19 @@ user_owned:
   # ADR-005 consumer: zeroes leave balance on offboarding.closed.
   - "src/application/service/offboarding_encash_handler.rs"
 
+  # Wave 1 P1 (H-2) — the accrual engine + the approvals seam: the daily walk's
+  # SQL (SKIP LOCKED claim / guarded apply / expiry stamp), the engine itself
+  # (period math, cap, postponed carry), and the port trait the composing app
+  # implements against backbone-approvals once H-9 lands.
+  - "src/infrastructure/persistence/timeoff_accrual_repository.rs"
+  - "src/application/service/accrual_service.rs"
+  - "src/application/service/approvals_port.rs"
+
   # Behavior tests (the golden cases / oracle) + BDD features.
   - "tests/features/**"
+  # Wave 1 P1 (H-2): live-pool helpers + the accrual/seam behavior tests.
+  - "tests/common/**"
+  - "tests/accrual_test.rs"
   # - "tests/*_golden_cases.rs"
   # - "tests/integrity_probes.rs"
 

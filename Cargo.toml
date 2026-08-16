@@ -86,5 +86,9 @@ pretty_assertions = "1.0"
 # Integration testing framework — the generated tests/integration_tests.rs hits a live server
 # via reqwest; guarded-route probes hit the router in-process via tower's ServiceExt::oneshot.
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+# Behavior tests (accrual + approvals-seam tests) drive sqlx directly against a
+# migrated test DB (live-pool pattern, employee/payroll convention).
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono"] }
 jsonwebtoken = "9.3"
 rand = "0.8"
