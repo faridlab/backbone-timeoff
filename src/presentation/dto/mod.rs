@@ -5,11 +5,29 @@
 //! This module provides DTOs for the presentation layer,
 //! with validation and OpenAPI schema support.
 
+pub mod timeoff_accrual_plan_dto;
+pub mod timeoff_accrual_level_dto;
 pub mod timeoff_balance_dto;
 pub mod timeoff_request_dto;
 pub mod timeoff_type_dto;
 
 // Re-exports
+pub use timeoff_accrual_plan_dto::{
+    CreateTimeoffAccrualPlanDto,
+    UpdateTimeoffAccrualPlanDto,
+    PatchTimeoffAccrualPlanDto,
+    TimeoffAccrualPlanResponseDto,
+    TimeoffAccrualPlanListResponseDto,
+    TimeoffAccrualPlanSummaryDto,
+};
+pub use timeoff_accrual_level_dto::{
+    CreateTimeoffAccrualLevelDto,
+    UpdateTimeoffAccrualLevelDto,
+    PatchTimeoffAccrualLevelDto,
+    TimeoffAccrualLevelResponseDto,
+    TimeoffAccrualLevelListResponseDto,
+    TimeoffAccrualLevelSummaryDto,
+};
 pub use timeoff_balance_dto::{
     CreateTimeoffBalanceDto,
     UpdateTimeoffBalanceDto,

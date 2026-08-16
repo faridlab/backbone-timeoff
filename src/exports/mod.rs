@@ -8,7 +8,7 @@
 //! ## Usage from other modules
 //!
 //! ```text
-//! use timeoff::exports::{TimeoffBalanceDto, TimeoffQueryService};
+//! use timeoff::exports::{TimeoffAccrualPlanDto};
 //! ```
 
 mod types;
@@ -27,6 +27,12 @@ pub use events::*;
 /// Summary of what this module exports
 ///
 /// ## Public Types
+/// - `TimeoffAccrualPlanDto` - Data transfer object for TimeoffAccrualPlan
+/// - `TimeoffAccrualPlanSummary` - Summary view of TimeoffAccrualPlan
+/// - `TimeoffAccrualPlanId` - Type-safe ID wrapper
+/// - `TimeoffAccrualLevelDto` - Data transfer object for TimeoffAccrualLevel
+/// - `TimeoffAccrualLevelSummary` - Summary view of TimeoffAccrualLevel
+/// - `TimeoffAccrualLevelId` - Type-safe ID wrapper
 /// - `TimeoffBalanceDto` - Data transfer object for TimeoffBalance
 /// - `TimeoffBalanceSummary` - Summary view of TimeoffBalance
 /// - `TimeoffBalanceId` - Type-safe ID wrapper
@@ -37,10 +43,13 @@ pub use events::*;
 /// - `TimeoffTypeSummary` - Summary view of TimeoffType
 /// - `TimeoffTypeId` - Type-safe ID wrapper
 ///
-/// ## Public Services
-/// - `TimeoffQueryService` - Read-only queries
-///
 /// ## Public Events
+/// - `TimeoffAccrualPlanCreatedEvent` - Published when TimeoffAccrualPlan is created
+/// - `TimeoffAccrualPlanUpdatedEvent` - Published when TimeoffAccrualPlan is updated
+/// - `TimeoffAccrualPlanDeletedEvent` - Published when TimeoffAccrualPlan is deleted
+/// - `TimeoffAccrualLevelCreatedEvent` - Published when TimeoffAccrualLevel is created
+/// - `TimeoffAccrualLevelUpdatedEvent` - Published when TimeoffAccrualLevel is updated
+/// - `TimeoffAccrualLevelDeletedEvent` - Published when TimeoffAccrualLevel is deleted
 /// - `TimeoffBalanceCreatedEvent` - Published when TimeoffBalance is created
 /// - `TimeoffBalanceUpdatedEvent` - Published when TimeoffBalance is updated
 /// - `TimeoffBalanceDeletedEvent` - Published when TimeoffBalance is deleted

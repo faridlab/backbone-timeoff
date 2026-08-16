@@ -9,12 +9,16 @@ use axum::Router;
 use std::sync::Arc;
 
 use super::{
+    timeoff_accrual_plan_handler::create_timeoff_accrual_plan_routes,
+    timeoff_accrual_level_handler::create_timeoff_accrual_level_routes,
     timeoff_balance_handler::create_timeoff_balance_routes,
     timeoff_request_handler::create_timeoff_request_routes,
     timeoff_type_handler::create_timeoff_type_routes,
 };
 
 use crate::application::service::{
+    TimeoffAccrualPlanService,
+    TimeoffAccrualLevelService,
     TimeoffBalanceService,
     TimeoffRequestService,
     TimeoffTypeService,
@@ -22,6 +26,8 @@ use crate::application::service::{
 
 /// Services collection for all CRUD endpoints
 pub struct HttpServices {
+    pub timeoff_accrual_plan: Arc<TimeoffAccrualPlanService>,
+    pub timeoff_accrual_level: Arc<TimeoffAccrualLevelService>,
     pub timeoff_balance: Arc<TimeoffBalanceService>,
     pub timeoff_request: Arc<TimeoffRequestService>,
     pub timeoff_type: Arc<TimeoffTypeService>,
@@ -44,6 +50,10 @@ pub struct HttpServices {
 /// 12. GET /api/v1/{collection}/:id/deleted - Get deleted by ID
 pub fn configure_routes(services: HttpServices) -> Router {
     Router::new()
+        // TimeoffAccrualPlan routes (12 Backbone endpoints)
+        .merge(create_timeoff_accrual_plan_routes(services.timeoff_accrual_plan))
+        // TimeoffAccrualLevel routes (12 Backbone endpoints)
+        .merge(create_timeoff_accrual_level_routes(services.timeoff_accrual_level))
         // TimeoffBalance routes (12 Backbone endpoints)
         .merge(create_timeoff_balance_routes(services.timeoff_balance))
         // TimeoffRequest routes (12 Backbone endpoints)
@@ -55,6 +65,14 @@ pub fn configure_routes(services: HttpServices) -> Router {
 /// Create an individual entity's routes (for modular configuration)
 pub mod individual {
     use super::*;
+
+    pub fn timeoff_accrual_plan_routes(service: Arc<TimeoffAccrualPlanService>) -> Router {
+        create_timeoff_accrual_plan_routes(service)
+    }
+
+    pub fn timeoff_accrual_level_routes(service: Arc<TimeoffAccrualLevelService>) -> Router {
+        create_timeoff_accrual_level_routes(service)
+    }
 
     pub fn timeoff_balance_routes(service: Arc<TimeoffBalanceService>) -> Router {
         create_timeoff_balance_routes(service)

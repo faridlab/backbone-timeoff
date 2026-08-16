@@ -11,6 +11,10 @@ servers:
     description: Development server
 
 tags:
+  - name: TimeoffAccrualPlans
+    description: TimeoffAccrualPlan management endpoints
+  - name: TimeoffAccrualLevels
+    description: TimeoffAccrualLevel management endpoints
   - name: TimeoffBalances
     description: TimeoffBalance management endpoints
   - name: TimeoffRequests
@@ -19,6 +23,738 @@ tags:
     description: TimeoffType management endpoints
 
 paths:
+  /api/v1/timeoff_accrual_plans:
+    get:
+      tags:
+        - TimeoffAccrualPlans
+      summary: List TimeoffAccrualPlans
+      description: Get a paginated list of TimeoffAccrualPlans with optional filtering and sorting
+      operationId: listTimeoffAccrualPlans
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlanList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Create TimeoffAccrualPlan
+      description: Create a new TimeoffAccrualPlan
+      operationId: createTimeoffAccrualPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTimeoffAccrualPlanRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/timeoff_accrual_plans/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Get TimeoffAccrualPlan by ID
+      operationId: getTimeoffAccrualPlan
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Update TimeoffAccrualPlan (full)
+      operationId: updateTimeoffAccrualPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTimeoffAccrualPlanRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Update TimeoffAccrualPlan (partial)
+      operationId: patchTimeoffAccrualPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchTimeoffAccrualPlanRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Delete TimeoffAccrualPlan (soft)
+      operationId: deleteTimeoffAccrualPlan
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/timeoff_accrual_plans/bulk:
+    post:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Bulk create TimeoffAccrualPlans
+      operationId: bulkCreateTimeoffAccrualPlans
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateTimeoffAccrualPlanRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimeoffAccrualPlan'
+    put:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Bulk update TimeoffAccrualPlans (full, atomic)
+      operationId: bulkUpdateTimeoffAccrualPlans
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateTimeoffAccrualPlanRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlanBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Bulk partial-update TimeoffAccrualPlans (atomic)
+      operationId: bulkPatchTimeoffAccrualPlans
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlanBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/timeoff_accrual_plans/upsert:
+    post:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Upsert TimeoffAccrualPlan
+      operationId: upsertTimeoffAccrualPlan
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTimeoffAccrualPlanRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlan'
+
+  /api/v1/timeoff_accrual_plans/trash:
+    get:
+      tags:
+        - TimeoffAccrualPlans
+      summary: List deleted TimeoffAccrualPlans
+      operationId: listDeletedTimeoffAccrualPlans
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlanList'
+
+  /api/v1/timeoff_accrual_plans/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Restore deleted TimeoffAccrualPlan
+      operationId: restoreTimeoffAccrualPlan
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/timeoff_accrual_plans/empty:
+    delete:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Empty trash for TimeoffAccrualPlans
+      operationId: emptyTrashTimeoffAccrualPlans
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/timeoff_accrual_plans/delete/bulk:
+    post:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Bulk soft-delete TimeoffAccrualPlans by ids (atomic)
+      operationId: bulkDeleteTimeoffAccrualPlans
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/timeoff_accrual_plans/restore/bulk:
+    post:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Bulk restore TimeoffAccrualPlans by ids (atomic)
+      operationId: bulkRestoreTimeoffAccrualPlans
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualPlanBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/timeoff_accrual_plans/restore/all:
+    post:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Restore all soft-deleted TimeoffAccrualPlans
+      operationId: restoreAllTimeoffAccrualPlans
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/timeoff_accrual_plans/trash/bulk:
+    delete:
+      tags:
+        - TimeoffAccrualPlans
+      summary: Bulk permanently-delete TimeoffAccrualPlans from trash by ids (atomic)
+      operationId: bulkPermanentDeleteTimeoffAccrualPlans
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/timeoff_accrual_levels:
+    get:
+      tags:
+        - TimeoffAccrualLevels
+      summary: List TimeoffAccrualLevels
+      description: Get a paginated list of TimeoffAccrualLevels with optional filtering and sorting
+      operationId: listTimeoffAccrualLevels
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevelList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Create TimeoffAccrualLevel
+      description: Create a new TimeoffAccrualLevel
+      operationId: createTimeoffAccrualLevel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTimeoffAccrualLevelRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevel'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/timeoff_accrual_levels/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+
+    get:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Get TimeoffAccrualLevel by ID
+      operationId: getTimeoffAccrualLevel
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Update TimeoffAccrualLevel (full)
+      operationId: updateTimeoffAccrualLevel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTimeoffAccrualLevelRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Update TimeoffAccrualLevel (partial)
+      operationId: patchTimeoffAccrualLevel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchTimeoffAccrualLevelRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Delete TimeoffAccrualLevel (soft)
+      operationId: deleteTimeoffAccrualLevel
+      responses:
+        '204':
+          description: Deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/timeoff_accrual_levels/bulk:
+    post:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Bulk create TimeoffAccrualLevels
+      operationId: bulkCreateTimeoffAccrualLevels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateTimeoffAccrualLevelRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimeoffAccrualLevel'
+    put:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Bulk update TimeoffAccrualLevels (full, atomic)
+      operationId: bulkUpdateTimeoffAccrualLevels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                allOf:
+                  - type: object
+                    required: [id]
+                    properties:
+                      id:
+                        type: string
+                  - $ref: '#/components/schemas/UpdateTimeoffAccrualLevelRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevelBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    patch:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Bulk partial-update TimeoffAccrualLevels (atomic)
+      operationId: bulkPatchTimeoffAccrualLevels
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [ids, patch]
+                  properties:
+                    ids:
+                      type: array
+                      items: { type: string }
+                    patch:
+                      type: object
+                      additionalProperties: true
+                - type: object
+                  required: [items]
+                  properties:
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [id, patch]
+                        properties:
+                          id: { type: string }
+                          patch: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevelBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/timeoff_accrual_levels/upsert:
+    post:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Upsert TimeoffAccrualLevel
+      operationId: upsertTimeoffAccrualLevel
+      parameters:
+        - name: key_field
+          in: query
+          schema:
+            type: string
+        - name: key_value
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTimeoffAccrualLevelRequest'
+      responses:
+        '200':
+          description: Upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevel'
+
+  /api/v1/timeoff_accrual_levels/trash:
+    get:
+      tags:
+        - TimeoffAccrualLevels
+      summary: List deleted TimeoffAccrualLevels
+      operationId: listDeletedTimeoffAccrualLevels
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevelList'
+
+  /api/v1/timeoff_accrual_levels/{id}/restore:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Restore deleted TimeoffAccrualLevel
+      operationId: restoreTimeoffAccrualLevel
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevel'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/v1/timeoff_accrual_levels/empty:
+    delete:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Empty trash for TimeoffAccrualLevels
+      operationId: emptyTrashTimeoffAccrualLevels
+      responses:
+        '200':
+          description: Trash emptied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted_count:
+                    type: integer
+
+  /api/v1/timeoff_accrual_levels/delete/bulk:
+    post:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Bulk soft-delete TimeoffAccrualLevels by ids (atomic)
+      operationId: bulkDeleteTimeoffAccrualLevels
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Soft-deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soft_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/timeoff_accrual_levels/restore/bulk:
+    post:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Bulk restore TimeoffAccrualLevels by ids (atomic)
+      operationId: bulkRestoreTimeoffAccrualLevels
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeoffAccrualLevelBulkResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/v1/timeoff_accrual_levels/restore/all:
+    post:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Restore all soft-deleted TimeoffAccrualLevels
+      operationId: restoreAllTimeoffAccrualLevels
+      responses:
+        '200':
+          description: Restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  restored: { type: integer }
+
+  /api/v1/timeoff_accrual_levels/trash/bulk:
+    delete:
+      tags:
+        - TimeoffAccrualLevels
+      summary: Bulk permanently-delete TimeoffAccrualLevels from trash by ids (atomic)
+      operationId: bulkPermanentDeleteTimeoffAccrualLevels
+      requestBody:
+        $ref: '#/components/requestBodies/BatchIds'
+      responses:
+        '200':
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  permanently_deleted: { type: integer }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
   /api/v1/timeoff_balances:
     get:
       tags:
@@ -1119,6 +1855,300 @@ paths:
 
 components:
   schemas:
+    TimeoffAccrualPlan:
+      type: object
+      required:
+        - id
+        - company_id
+        - timeoff_type_id
+        - name
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        timeoff_type_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        metadata:
+          type: object
+
+    TimeoffAccrualPlanBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeoffAccrualPlan'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateTimeoffAccrualPlanRequest:
+      type: object
+      required:
+        - company_id
+        - timeoff_type_id
+        - name
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        timeoff_type_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        metadata:
+          type: object
+
+    UpdateTimeoffAccrualPlanRequest:
+      type: object
+      required:
+        - company_id
+        - timeoff_type_id
+        - name
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        timeoff_type_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        metadata:
+          type: object
+
+    PatchTimeoffAccrualPlanRequest:
+      type: object
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        timeoff_type_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 120
+        metadata:
+          type: object
+
+    TimeoffAccrualPlanList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeoffAccrualPlan'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    TimeoffAccrualLevel:
+      type: object
+      required:
+        - id
+        - company_id
+        - plan_id
+        - sequence
+        - start_count
+        - start_type
+        - frequency
+        - added_value
+        - is_added_based_on_worked_time
+        - action_with_lost_days
+        - metadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        company_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int32
+        start_count:
+          type: string
+        start_type:
+          type: string
+        frequency:
+          type: string
+        added_value:
+          type: string
+        is_added_based_on_worked_time:
+          type: boolean
+        maximum_leave:
+          nullable: true
+          type: string
+        action_with_lost_days:
+          type: string
+        postponed_max_days:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    TimeoffAccrualLevelBulkResult:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeoffAccrualLevel'
+        total: { type: integer }
+        failed: { type: integer }
+        errors:
+          type: array
+          items: { type: string }
+
+    CreateTimeoffAccrualLevelRequest:
+      type: object
+      required:
+        - company_id
+        - plan_id
+        - sequence
+        - start_count
+        - start_type
+        - frequency
+        - added_value
+        - is_added_based_on_worked_time
+        - action_with_lost_days
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int32
+        start_count:
+          type: string
+        start_type:
+          type: string
+        frequency:
+          type: string
+        added_value:
+          type: string
+        is_added_based_on_worked_time:
+          type: boolean
+        maximum_leave:
+          nullable: true
+          type: string
+        action_with_lost_days:
+          type: string
+        postponed_max_days:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    UpdateTimeoffAccrualLevelRequest:
+      type: object
+      required:
+        - company_id
+        - plan_id
+        - sequence
+        - start_count
+        - start_type
+        - frequency
+        - added_value
+        - is_added_based_on_worked_time
+        - action_with_lost_days
+        - metadata
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int32
+        start_count:
+          type: string
+        start_type:
+          type: string
+        frequency:
+          type: string
+        added_value:
+          type: string
+        is_added_based_on_worked_time:
+          type: boolean
+        maximum_leave:
+          nullable: true
+          type: string
+        action_with_lost_days:
+          type: string
+        postponed_max_days:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    PatchTimeoffAccrualLevelRequest:
+      type: object
+      properties:
+        company_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          format: int32
+        start_count:
+          type: string
+        start_type:
+          type: string
+        frequency:
+          type: string
+        added_value:
+          type: string
+        is_added_based_on_worked_time:
+          type: boolean
+        maximum_leave:
+          nullable: true
+          type: string
+        action_with_lost_days:
+          type: string
+        postponed_max_days:
+          nullable: true
+          type: string
+        metadata:
+          type: object
+
+    TimeoffAccrualLevelList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeoffAccrualLevel'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
     TimeoffBalance:
       type: object
       required:
@@ -1129,6 +2159,7 @@ components:
         - period
         - allocated
         - used
+        - carried_over
         - metadata
       properties:
         id:
@@ -1150,6 +2181,28 @@ components:
           type: string
         used:
           type: string
+        accrual_plan_id:
+          nullable: true
+          type: string
+          format: uuid
+        date_from:
+          nullable: true
+          type: string
+          format: date
+        date_to:
+          nullable: true
+          type: string
+          format: date
+        last_accrual_at:
+          nullable: true
+          type: string
+          format: date-time
+        carried_over:
+          type: string
+        expired_at:
+          nullable: true
+          type: string
+          format: date-time
         metadata:
           type: object
 
@@ -1175,6 +2228,7 @@ components:
         - period
         - allocated
         - used
+        - carried_over
         - metadata
       properties:
         company_id:
@@ -1193,6 +2247,28 @@ components:
           type: string
         used:
           type: string
+        accrual_plan_id:
+          nullable: true
+          type: string
+          format: uuid
+        date_from:
+          nullable: true
+          type: string
+          format: date
+        date_to:
+          nullable: true
+          type: string
+          format: date
+        last_accrual_at:
+          nullable: true
+          type: string
+          format: date-time
+        carried_over:
+          type: string
+        expired_at:
+          nullable: true
+          type: string
+          format: date-time
         metadata:
           type: object
 
@@ -1205,6 +2281,7 @@ components:
         - period
         - allocated
         - used
+        - carried_over
         - metadata
       properties:
         company_id:
@@ -1223,6 +2300,28 @@ components:
           type: string
         used:
           type: string
+        accrual_plan_id:
+          nullable: true
+          type: string
+          format: uuid
+        date_from:
+          nullable: true
+          type: string
+          format: date
+        date_to:
+          nullable: true
+          type: string
+          format: date
+        last_accrual_at:
+          nullable: true
+          type: string
+          format: date-time
+        carried_over:
+          type: string
+        expired_at:
+          nullable: true
+          type: string
+          format: date-time
         metadata:
           type: object
 
@@ -1245,6 +2344,28 @@ components:
           type: string
         used:
           type: string
+        accrual_plan_id:
+          nullable: true
+          type: string
+          format: uuid
+        date_from:
+          nullable: true
+          type: string
+          format: date
+        date_to:
+          nullable: true
+          type: string
+          format: date
+        last_accrual_at:
+          nullable: true
+          type: string
+          format: date-time
+        carried_over:
+          type: string
+        expired_at:
+          nullable: true
+          type: string
+          format: date-time
         metadata:
           type: object
 
@@ -1293,6 +2414,10 @@ components:
           type: string
           maxLength: 1000
         approval_employee_id:
+          nullable: true
+          type: string
+          format: uuid
+        approval_request_id:
           nullable: true
           type: string
           format: uuid
@@ -1352,6 +2477,10 @@ components:
           nullable: true
           type: string
           format: uuid
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
         note_reject:
           nullable: true
           type: string
@@ -1395,6 +2524,10 @@ components:
           nullable: true
           type: string
           format: uuid
+        approval_request_id:
+          nullable: true
+          type: string
+          format: uuid
         note_reject:
           nullable: true
           type: string
@@ -1427,6 +2560,10 @@ components:
           type: string
           maxLength: 1000
         approval_employee_id:
+          nullable: true
+          type: string
+          format: uuid
+        approval_request_id:
           nullable: true
           type: string
           format: uuid

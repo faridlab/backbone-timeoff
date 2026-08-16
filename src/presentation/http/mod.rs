@@ -5,6 +5,8 @@
 //! These handlers use Axum and backbone-core's BackboneCrudHandler
 //! to provide all 12 standard Backbone CRUD endpoints.
 
+pub mod timeoff_accrual_plan_handler;
+pub mod timeoff_accrual_level_handler;
 pub mod timeoff_balance_handler;
 pub mod timeoff_request_handler;
 pub mod timeoff_type_handler;
@@ -13,6 +15,8 @@ pub mod timeoff_type_handler;
 // END CUSTOM
 
 // Re-exports
+pub use timeoff_accrual_plan_handler::{create_timeoff_accrual_plan_routes, create_timeoff_accrual_plan_read_routes, create_timeoff_accrual_plan_write_routes};
+pub use timeoff_accrual_level_handler::{create_timeoff_accrual_level_routes, create_timeoff_accrual_level_read_routes, create_timeoff_accrual_level_write_routes};
 pub use timeoff_balance_handler::{create_timeoff_balance_routes, create_timeoff_balance_read_routes, create_timeoff_balance_write_routes};
 pub use timeoff_request_handler::{create_timeoff_request_routes, create_timeoff_request_read_routes, create_timeoff_request_write_routes};
 pub use timeoff_type_handler::{create_timeoff_type_routes, create_timeoff_type_read_routes, create_timeoff_type_write_routes};

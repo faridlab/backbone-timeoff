@@ -145,6 +145,14 @@ fn timeoff_balance_to_dto(e: TimeoffBalance) -> Result<TimeoffBalanceDto> {
         period: e.period,
         allocated: e.allocated,
         used: e.used,
+        // Accrual walk state (Wave 1 P1, H-2): plan link, validity window,
+        // watermark, postponed carry, expiry stamp.
+        accrual_plan_id: e.accrual_plan_id,
+        date_from: e.date_from,
+        date_to: e.date_to,
+        last_accrual_at: e.last_accrual_at,
+        carried_over: e.carried_over,
+        expired_at: e.expired_at,
         metadata: serde_json::to_value(&e.metadata)?,
     })
 }
@@ -159,6 +167,8 @@ fn timeoff_request_to_dto(e: TimeoffRequest) -> Result<TimeoffRequestDto> {
         date_end: e.date_end,
         note: e.note,
         approval_employee_id: e.approval_employee_id,
+        // The approvals seam link (Wave 1 P1, H-2).
+        approval_request_id: e.approval_request_id,
         note_reject: e.note_reject,
         status: e.status,
         metadata: serde_json::to_value(&e.metadata)?,

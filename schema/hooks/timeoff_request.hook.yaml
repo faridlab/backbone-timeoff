@@ -1,0 +1,50 @@
+# =============================================================================
+# timeoff Hooks — TimeoffRequest lifecycle (Wave 1 P1, H-2)
+# =============================================================================
+# ADR-0016 declaration for the request status. Odoo's `hr.leave` state is HAND-SET
+# (written by action methods, not derived) — we keep exactly that posture and do NOT
+# "correct" it into a projection: the sticky refusal/approval marks (`note_reject`,
+# `approval_employee_id`, and the terminal statuses themselves) are business facts
+# written once at decision time, not re-derivable state.
+#
+# Implemented in src/application/service/timeoff_request_service_custom.rs
+# (approve_request / reject_request / cancel_request + the approvals seam check);
+# proven in tests/accrual_test.rs (seam) and tests/timeoff_request_test.rs (verbs).
+
+module: timeoff
+version: 2
+
+state_machines:
+  - entity: TimeoffRequest
+    field: status
+    lifecycle: hand_set
+    description: >
+      Hand-set per ADR-0016: transitions are writes by the decision verbs, never
+      derived. pending → approved is gated on balance (and, when a linked
+      approvals.ApprovalRequest exists, on its outcome — the P1 seam; the decision
+      engine itself lands with H-9). approved → cancelled restores the drawn balance;
+      rejected/cancelled are sticky terminal marks preserved as written.
+    initial: pending
+    states: [pending, approved, rejected, cancelled]
+    transitions:
+      - { from: pending,   to: approved,  on: approve_request }
+      - { from: pending,   to: rejected,  on: reject_request }
+      - { from: pending,   to: cancelled, on: cancel_request }
+      - { from: approved,  to: cancelled, on: cancel_request }
+
+rules:
+  - id: TR1
+    name: approve_gated_on_balance
+    when: "approve_request commits"
+    assert: "used + days <= allocated for (employee, timeoff_type, period) — the draw and the transition are ONE transaction"
+    error_code: insufficient_timeoff_balance
+  - id: TR2
+    name: approve_gated_on_linked_approval
+    when: "the request carries approval_request_id and the approvals seam is wired"
+    assert: "the linked ApprovalRequest's status is approved"
+    error_code: approval_not_granted
+  - id: TR3
+    name: cancel_restores_balance
+    when: "an approved request is cancelled"
+    assert: "the drawn days are restored in the same transaction, gated on used >= days"
+    error_code: cannot_restore_timeoff_balance

@@ -48,9 +48,14 @@ impl TimeoffBalanceRepository {
 /// per the module's 4-layer rule: services orchestrate and own the unit of work, repositories hold
 /// the SQL. Ported from backbone-hr's `LeaveBalanceRepository`.
 impl TimeoffBalanceRepository {
-    /// Draw down a balance on approval, GATED on availability: the row moves only if
-    /// `used + days <= allocated`. Returns rows affected: 0 = insufficient (or missing) balance, and
-    /// the caller must roll back. This gate IS the invariant — you cannot approve leave you don't have.
+    /// Draw down a balance on approval, GATED on availability AND on the accrual
+    /// validity window (Wave 1 P1, H-2): the row moves only if
+    /// `used + days <= allocated` and the request's `[date_start, date_end]`
+    /// falls inside the balance's `[date_from, date_to]` (either bound open when
+    /// NULL — a manually-granted balance has no window). Returns rows affected:
+    /// 0 = insufficient (or missing or window-missed) balance, and the caller
+    /// must roll back. This gate IS the invariant — you cannot approve leave you
+    /// don't have or spend an allocation outside its validity.
     ///
     /// Takes the CALLER'S connection so the draw and the request's `pending → approved` transition
     /// commit as ONE unit. The caller has already bound the company on it (`bind_company_on`) — don't
@@ -62,12 +67,17 @@ impl TimeoffBalanceRepository {
         timeoff_type_id: Uuid,
         period: &str,
         days: Decimal,
+        date_start: chrono::NaiveDate,
+        date_end: chrono::NaiveDate,
     ) -> Result<u64, sqlx::Error> {
         let done = sqlx::query(
             r#"UPDATE timeoff.timeoff_balances SET used = used + $4
-               WHERE employee_id=$1 AND timeoff_type_id=$2 AND period=$3 AND used + $4 <= allocated"#,
+               WHERE employee_id=$1 AND timeoff_type_id=$2 AND period=$3 AND used + $4 <= allocated
+                 AND (date_from IS NULL OR date_from <= $5)
+                 AND (date_to   IS NULL OR date_to   >= $6)"#,
         )
         .bind(employee_id).bind(timeoff_type_id).bind(period).bind(days)
+        .bind(date_start).bind(date_end)
         .execute(conn)
         .await?;
         Ok(done.rows_affected())

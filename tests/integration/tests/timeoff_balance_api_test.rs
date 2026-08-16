@@ -30,6 +30,12 @@ impl TestDataGenerator for TimeoffBalanceTestData {
             "period": format!("Test {}", Uuid::new_v4().to_string().split('-').next().unwrap()),
             "allocated": 0,
             "used": 0,
+            "accrual_plan_id": null,
+            "date_from": null,
+            "date_to": null,
+            "last_accrual_at": now,
+            "carried_over": 0,
+            "expired_at": now,
             "metadata": json!({}),
         })
     }
@@ -44,6 +50,12 @@ impl TestDataGenerator for TimeoffBalanceTestData {
             "period": format!("Test {}", Uuid::new_v4().to_string().split('-').next().unwrap()),
             "allocated": 0,
             "used": 0,
+            "accrual_plan_id": null,
+            "date_from": null,
+            "date_to": null,
+            "last_accrual_at": now,
+            "carried_over": 0,
+            "expired_at": now,
             "metadata": json!({}),
         })
     }

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, NaiveDate};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
@@ -55,6 +55,12 @@ pub struct TimeoffBalance {
     pub period: String,
     pub allocated: Decimal,
     pub used: Decimal,
+    pub accrual_plan_id: Option<Uuid>,
+    pub date_from: Option<NaiveDate>,
+    pub date_to: Option<NaiveDate>,
+    pub last_accrual_at: Option<DateTime<Utc>>,
+    pub carried_over: Decimal,
+    pub expired_at: Option<DateTime<Utc>>,
     #[serde(default)]
     #[sqlx(json)]
     pub metadata: AuditMetadata,
@@ -63,11 +69,11 @@ pub struct TimeoffBalance {
 impl TimeoffBalance {
     /// Create a builder for TimeoffBalance
     pub fn builder() -> TimeoffBalanceBuilder {
-        TimeoffBalanceBuilder::default()
+        <TimeoffBalanceBuilder as Default>::default()
     }
 
     /// Create a new TimeoffBalance with required fields
-    pub fn new(company_id: Uuid, timeoff_type_id: Uuid, employee_id: Uuid, period: String, allocated: Decimal, used: Decimal) -> Self {
+    pub fn new(company_id: Uuid, timeoff_type_id: Uuid, employee_id: Uuid, period: String, allocated: Decimal, used: Decimal, carried_over: Decimal) -> Self {
         Self {
             id: Uuid::new_v4(),
             company_id,
@@ -76,6 +82,12 @@ impl TimeoffBalance {
             period,
             allocated,
             used,
+            accrual_plan_id: None,
+            date_from: None,
+            date_to: None,
+            last_accrual_at: None,
+            carried_over,
+            expired_at: None,
             metadata: AuditMetadata::default(),
         }
     }
@@ -132,6 +144,40 @@ impl TimeoffBalance {
 
 
     // ==========================================================
+    // Fluent Setters (with_* for optional fields)
+    // ==========================================================
+
+    /// Set the accrual_plan_id field (chainable)
+    pub fn with_accrual_plan_id(mut self, value: Uuid) -> Self {
+        self.accrual_plan_id = Some(value);
+        self
+    }
+
+    /// Set the date_from field (chainable)
+    pub fn with_date_from(mut self, value: NaiveDate) -> Self {
+        self.date_from = Some(value);
+        self
+    }
+
+    /// Set the date_to field (chainable)
+    pub fn with_date_to(mut self, value: NaiveDate) -> Self {
+        self.date_to = Some(value);
+        self
+    }
+
+    /// Set the last_accrual_at field (chainable)
+    pub fn with_last_accrual_at(mut self, value: DateTime<Utc>) -> Self {
+        self.last_accrual_at = Some(value);
+        self
+    }
+
+    /// Set the expired_at field (chainable)
+    pub fn with_expired_at(mut self, value: DateTime<Utc>) -> Self {
+        self.expired_at = Some(value);
+        self
+    }
+
+    // ==========================================================
     // Partial Update
     // ==========================================================
 
@@ -156,6 +202,24 @@ impl TimeoffBalance {
                 }
                 "used" => {
                     if let Ok(v) = serde_json::from_value(value) { self.used = v; }
+                }
+                "accrual_plan_id" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.accrual_plan_id = v; }
+                }
+                "date_from" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.date_from = v; }
+                }
+                "date_to" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.date_to = v; }
+                }
+                "last_accrual_at" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.last_accrual_at = v; }
+                }
+                "carried_over" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.carried_over = v; }
+                }
+                "expired_at" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.expired_at = v; }
                 }
                 _ => {} // ignore unknown fields
             }
@@ -214,6 +278,7 @@ impl backbone_orm::EntityRepoMeta for TimeoffBalance {
         m.insert("company_id".to_string(), "uuid".to_string());
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
+        m.insert("accrual_plan_id".to_string(), "uuid".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
@@ -236,6 +301,12 @@ pub struct TimeoffBalanceBuilder {
     period: Option<String>,
     allocated: Option<Decimal>,
     used: Option<Decimal>,
+    accrual_plan_id: Option<Uuid>,
+    date_from: Option<NaiveDate>,
+    date_to: Option<NaiveDate>,
+    last_accrual_at: Option<DateTime<Utc>>,
+    carried_over: Option<Decimal>,
+    expired_at: Option<DateTime<Utc>>,
 }
 
 impl TimeoffBalanceBuilder {
@@ -275,6 +346,42 @@ impl TimeoffBalanceBuilder {
         self
     }
 
+    /// Set the accrual_plan_id field (optional)
+    pub fn accrual_plan_id(mut self, value: Uuid) -> Self {
+        self.accrual_plan_id = Some(value);
+        self
+    }
+
+    /// Set the date_from field (optional)
+    pub fn date_from(mut self, value: NaiveDate) -> Self {
+        self.date_from = Some(value);
+        self
+    }
+
+    /// Set the date_to field (optional)
+    pub fn date_to(mut self, value: NaiveDate) -> Self {
+        self.date_to = Some(value);
+        self
+    }
+
+    /// Set the last_accrual_at field (optional)
+    pub fn last_accrual_at(mut self, value: DateTime<Utc>) -> Self {
+        self.last_accrual_at = Some(value);
+        self
+    }
+
+    /// Set the carried_over field (default: `Decimal::from(0)`)
+    pub fn carried_over(mut self, value: Decimal) -> Self {
+        self.carried_over = Some(value);
+        self
+    }
+
+    /// Set the expired_at field (optional)
+    pub fn expired_at(mut self, value: DateTime<Utc>) -> Self {
+        self.expired_at = Some(value);
+        self
+    }
+
     /// Build the TimeoffBalance entity
     ///
     /// Returns Err if any required field without a default is missing.
@@ -293,6 +400,12 @@ impl TimeoffBalanceBuilder {
             period,
             allocated,
             used: self.used.unwrap_or(Decimal::from(0)),
+            accrual_plan_id: self.accrual_plan_id,
+            date_from: self.date_from,
+            date_to: self.date_to,
+            last_accrual_at: self.last_accrual_at,
+            carried_over: self.carried_over.unwrap_or(Decimal::from(0)),
+            expired_at: self.expired_at,
             metadata: AuditMetadata::default(),
         })
     }

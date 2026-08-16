@@ -32,6 +32,8 @@ pub use domain::entity::*;
 pub use infrastructure::persistence::*;
 
 // Re-exports - Application services
+pub use application::service::TimeoffAccrualPlanService;
+pub use application::service::TimeoffAccrualLevelService;
 pub use application::service::TimeoffBalanceService;
 pub use application::service::TimeoffRequestService;
 pub use application::service::TimeoffTypeService;
@@ -56,6 +58,8 @@ use sqlx::PgPool;
 /// let router = timeoff.all_crud_routes();
 /// ```
 pub struct TimeoffModule {
+    pub(crate) timeoff_accrual_plan_service: Arc<TimeoffAccrualPlanService>,
+    pub(crate) timeoff_accrual_level_service: Arc<TimeoffAccrualLevelService>,
     pub(crate) timeoff_balance_service: Arc<TimeoffBalanceService>,
     pub(crate) timeoff_request_service: Arc<TimeoffRequestService>,
     pub(crate) timeoff_type_service: Arc<TimeoffTypeService>,
@@ -91,12 +95,16 @@ impl TimeoffModule {
     /// real deployment; use this only in trusted/admin/seeding contexts.
     pub fn all_crud_routes(&self) -> Router {
         use presentation::http::{
+            create_timeoff_accrual_plan_routes,
+            create_timeoff_accrual_level_routes,
             create_timeoff_balance_routes,
             create_timeoff_request_routes,
             create_timeoff_type_routes,
         };
 
         Router::new()
+            .merge(create_timeoff_accrual_plan_routes(self.timeoff_accrual_plan_service.clone()))
+            .merge(create_timeoff_accrual_level_routes(self.timeoff_accrual_level_service.clone()))
             .merge(create_timeoff_balance_routes(self.timeoff_balance_service.clone()))
             .merge(create_timeoff_request_routes(self.timeoff_request_service.clone()))
             .merge(create_timeoff_type_routes(self.timeoff_type_service.clone()))
@@ -107,10 +115,35 @@ impl TimeoffModule {
     /// mount exposes unguarded writes. Compose a guarded router (read + validated
     /// writes) for production, or call `all_crud_routes()` to opt into the full
     /// unguarded surface explicitly.
-    #[deprecated(note = "mounts unvalidated generic CRUD on every entity; compose a guarded router for production, or call all_crud_routes() for the intentional full/unguarded surface")]
+    #[deprecated(note = "mounts unvalidated generic CRUD; prefer readonly_routes() + validated writes, or all_crud_routes() for the full/unguarded surface")]
     pub fn routes(&self) -> Router {
         self.all_crud_routes()
     }
+
+    /// Read-only routes for every entity (GET endpoints only) — the safe base.
+    ///
+    /// Generic mutation can't reach here, so this surface cannot bypass a
+    /// validated write service's invariants. Use this as the production base and
+    /// merge validated write routes (or a write service's HTTP layer) onto it.
+    pub fn readonly_routes(&self) -> Router {
+        use presentation::http::{
+            create_timeoff_accrual_plan_read_routes,
+            create_timeoff_accrual_level_read_routes,
+            create_timeoff_balance_read_routes,
+            create_timeoff_request_read_routes,
+            create_timeoff_type_read_routes,
+        };
+
+        Router::new()
+            .merge(create_timeoff_accrual_plan_read_routes(self.timeoff_accrual_plan_service.clone()))
+            .merge(create_timeoff_accrual_level_read_routes(self.timeoff_accrual_level_service.clone()))
+            .merge(create_timeoff_balance_read_routes(self.timeoff_balance_service.clone()))
+            .merge(create_timeoff_request_read_routes(self.timeoff_request_service.clone()))
+            .merge(create_timeoff_type_read_routes(self.timeoff_type_service.clone()))
+    }
+
+    // <<< CUSTOM METHODS
+    // END CUSTOM
 }
 
 /// Builder for TimeoffModule
@@ -140,6 +173,14 @@ impl TimeoffModuleBuilder {
         let db_pool = self.db_pool
             .ok_or_else(|| anyhow::anyhow!("Database pool not configured"))?;
 
+        // TimeoffAccrualPlan service
+        let timeoff_accrual_plan_repository = Arc::new(TimeoffAccrualPlanRepository::new(db_pool.clone()));
+        let timeoff_accrual_plan_service = Arc::new(TimeoffAccrualPlanService::with_repository(timeoff_accrual_plan_repository.clone()));
+
+        // TimeoffAccrualLevel service
+        let timeoff_accrual_level_repository = Arc::new(TimeoffAccrualLevelRepository::new(db_pool.clone()));
+        let timeoff_accrual_level_service = Arc::new(TimeoffAccrualLevelService::with_repository(timeoff_accrual_level_repository.clone()));
+
         // TimeoffBalance service
         let timeoff_balance_repository = Arc::new(TimeoffBalanceRepository::new(db_pool.clone()));
         let timeoff_balance_service = Arc::new(TimeoffBalanceService::with_repository(timeoff_balance_repository.clone()));
@@ -162,6 +203,8 @@ impl TimeoffModuleBuilder {
         // END CUSTOM
 
         Ok(TimeoffModule {
+            timeoff_accrual_plan_service,
+            timeoff_accrual_level_service,
             timeoff_balance_service,
             timeoff_request_service,
             timeoff_type_service,

@@ -12,6 +12,127 @@ use rust_decimal::Decimal;
 use crate::domain::entity::*;
 
 // ============================================================================
+// TIMEOFFACCRUALPLAN TYPES
+// ============================================================================
+
+/// Type-safe ID for TimeoffAccrualPlan
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TimeoffAccrualPlanId(pub Uuid);
+
+impl TimeoffAccrualPlanId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for TimeoffAccrualPlanId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<TimeoffAccrualPlanId> for Uuid {
+    fn from(id: TimeoffAccrualPlanId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for TimeoffAccrualPlan
+///
+/// This is the public representation of TimeoffAccrualPlan for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualPlanDto {
+    pub id: TimeoffAccrualPlanId,
+    pub company_id: Uuid,
+    pub timeoff_type_id: Uuid,
+    pub name: String,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of TimeoffAccrualPlan for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualPlanSummary {
+    pub id: TimeoffAccrualPlanId,
+    pub name: String,
+}
+
+/// Reference to TimeoffAccrualPlan for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualPlanRef {
+    pub id: TimeoffAccrualPlanId,
+}
+
+// ============================================================================
+// TIMEOFFACCRUALLEVEL TYPES
+// ============================================================================
+
+/// Type-safe ID for TimeoffAccrualLevel
+///
+/// Use this instead of raw Uuid for type safety across modules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TimeoffAccrualLevelId(pub Uuid);
+
+impl TimeoffAccrualLevelId {
+    pub fn new(id: Uuid) -> Self {
+        Self(id)
+    }
+
+    pub fn into_inner(self) -> Uuid {
+        self.0
+    }
+}
+
+impl From<Uuid> for TimeoffAccrualLevelId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
+impl From<TimeoffAccrualLevelId> for Uuid {
+    fn from(id: TimeoffAccrualLevelId) -> Self {
+        id.0
+    }
+}
+
+/// Data transfer object for TimeoffAccrualLevel
+///
+/// This is the public representation of TimeoffAccrualLevel for other modules.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualLevelDto {
+    pub id: TimeoffAccrualLevelId,
+    pub company_id: Uuid,
+    pub plan_id: Uuid,
+    pub sequence: i32,
+    pub start_count: Decimal,
+    pub start_type: AccrualStartType,
+    pub frequency: AccrualFrequency,
+    pub added_value: Decimal,
+    pub is_added_based_on_worked_time: bool,
+    pub maximum_leave: Option<Decimal>,
+    pub action_with_lost_days: AccrualLostDaysAction,
+    pub postponed_max_days: Option<Decimal>,
+    pub metadata: serde_json::Value,
+}
+
+/// Summary view of TimeoffAccrualLevel for list displays
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualLevelSummary {
+    pub id: TimeoffAccrualLevelId,
+}
+
+/// Reference to TimeoffAccrualLevel for foreign key relationships
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualLevelRef {
+    pub id: TimeoffAccrualLevelId,
+}
+
+// ============================================================================
 // TIMEOFFBALANCE TYPES
 // ============================================================================
 
@@ -55,6 +176,12 @@ pub struct TimeoffBalanceDto {
     pub period: String,
     pub allocated: Decimal,
     pub used: Decimal,
+    pub accrual_plan_id: Option<Uuid>,
+    pub date_from: Option<NaiveDate>,
+    pub date_to: Option<NaiveDate>,
+    pub last_accrual_at: Option<DateTime<Utc>>,
+    pub carried_over: Decimal,
+    pub expired_at: Option<DateTime<Utc>>,
     pub metadata: serde_json::Value,
 }
 
@@ -115,6 +242,7 @@ pub struct TimeoffRequestDto {
     pub date_end: NaiveDate,
     pub note: Option<String>,
     pub approval_employee_id: Option<Uuid>,
+    pub approval_request_id: Option<Uuid>,
     pub note_reject: Option<String>,
     pub status: TimeoffRequestStatus,
     pub metadata: serde_json::Value,

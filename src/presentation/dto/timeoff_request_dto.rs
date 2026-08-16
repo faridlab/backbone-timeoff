@@ -53,6 +53,8 @@ pub struct CreateTimeoffRequestDto {
     pub note: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_employee_id")]
     pub approval_employee_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_request_id")]
+    pub approval_request_id: Option<Uuid>,
     #[cfg_attr(feature = "validation", validate(length(max = 1000)))]
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "note_reject")]
     pub note_reject: Option<String>,
@@ -92,6 +94,8 @@ pub struct UpdateTimeoffRequestDto {
     pub note: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_employee_id")]
     pub approval_employee_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_request_id")]
+    pub approval_request_id: Option<Uuid>,
     #[cfg_attr(feature = "validation", validate(length(max = 1000)))]
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "note_reject")]
     pub note_reject: Option<String>,
@@ -131,6 +135,8 @@ pub struct PatchTimeoffRequestDto {
     pub note: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "approval_employee_id")]
     pub approval_employee_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "approval_request_id")]
+    pub approval_request_id: Option<Uuid>,
     #[cfg_attr(feature = "validation", validate(length(max = 1000)))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "note_reject")]
     pub note_reject: Option<String>,
@@ -141,7 +147,7 @@ pub struct PatchTimeoffRequestDto {
 impl PatchTimeoffRequestDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.date_start.is_some() || self.date_end.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.note_reject.is_some() || self.status.is_some()
+        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.date_start.is_some() || self.date_end.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
     }
 }
 
@@ -171,6 +177,7 @@ pub struct TimeoffRequestResponseDto {
     pub date_end: NaiveDate,
     pub note: Option<String>,
     pub approval_employee_id: Option<Uuid>,
+    pub approval_request_id: Option<Uuid>,
     pub note_reject: Option<String>,
     pub status: TimeoffRequestStatus,
     pub metadata: AuditMetadata,
@@ -251,6 +258,7 @@ impl From<TimeoffRequest> for TimeoffRequestResponseDto {
             date_end: entity.date_end,
             note: entity.note,
             approval_employee_id: entity.approval_employee_id,
+            approval_request_id: entity.approval_request_id,
             note_reject: entity.note_reject,
             status: entity.status,
             metadata: entity.metadata,
@@ -282,6 +290,7 @@ impl From<CreateTimeoffRequestDto> for TimeoffRequest {
             date_end: dto.date_end,
             note: dto.note,
             approval_employee_id: dto.approval_employee_id,
+            approval_request_id: dto.approval_request_id,
             note_reject: dto.note_reject,
             status: dto.status,
             metadata: AuditMetadata::default(),
@@ -300,6 +309,7 @@ impl From<&TimeoffRequest> for TimeoffRequestResponseDto {
             date_end: entity.date_end.clone(),
             note: entity.note.clone(),
             approval_employee_id: entity.approval_employee_id.clone(),
+            approval_request_id: entity.approval_request_id.clone(),
             note_reject: entity.note_reject.clone(),
             status: entity.status.clone(),
             metadata: entity.metadata.clone(),
@@ -322,6 +332,7 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffRequestDto> for TimeoffRequest {
         self.date_end = dto.date_end;
         self.note = dto.note;
         self.approval_employee_id = dto.approval_employee_id;
+        self.approval_request_id = dto.approval_request_id;
         self.note_reject = dto.note_reject;
         self.status = dto.status;
         Ok(self)

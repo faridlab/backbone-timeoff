@@ -9,6 +9,8 @@
 use std::sync::Arc;
 
 // Import all services
+use crate::application::service::TimeoffAccrualPlanService;
+use crate::application::service::TimeoffAccrualLevelService;
 use crate::application::service::TimeoffBalanceService;
 use crate::application::service::TimeoffRequestService;
 use crate::application::service::TimeoffTypeService;
@@ -31,6 +33,10 @@ use crate::application::service::TimeoffTypeService;
 /// ```
 #[derive(Clone)]
 pub struct AppState {
+    /// TimeoffAccrualPlan service
+    pub timeoff_accrual_plan_service: Arc<TimeoffAccrualPlanService>,
+    /// TimeoffAccrualLevel service
+    pub timeoff_accrual_level_service: Arc<TimeoffAccrualLevelService>,
     /// TimeoffBalance service
     pub timeoff_balance_service: Arc<TimeoffBalanceService>,
     /// TimeoffRequest service
@@ -42,11 +48,15 @@ pub struct AppState {
 impl AppState {
     /// Create a new AppState with all services.
     pub fn new(
+        timeoff_accrual_plan_service: Arc<TimeoffAccrualPlanService>,
+        timeoff_accrual_level_service: Arc<TimeoffAccrualLevelService>,
         timeoff_balance_service: Arc<TimeoffBalanceService>,
         timeoff_request_service: Arc<TimeoffRequestService>,
         timeoff_type_service: Arc<TimeoffTypeService>
     ) -> Self {
         Self {
+            timeoff_accrual_plan_service,
+            timeoff_accrual_level_service,
             timeoff_balance_service,
             timeoff_request_service,
             timeoff_type_service,
@@ -56,6 +66,8 @@ impl AppState {
     /// Create AppState from module instance.
     pub fn from_module(module: &crate::TimeoffModule) -> Self {
         Self {
+            timeoff_accrual_plan_service: module.timeoff_accrual_plan_service.clone(),
+            timeoff_accrual_level_service: module.timeoff_accrual_level_service.clone(),
             timeoff_balance_service: module.timeoff_balance_service.clone(),
             timeoff_request_service: module.timeoff_request_service.clone(),
             timeoff_type_service: module.timeoff_type_service.clone(),
@@ -68,6 +80,8 @@ impl AppState {
 /// Allows incremental construction of AppState.
 #[derive(Default)]
 pub struct AppStateBuilder {
+    timeoff_accrual_plan_service: Option<Arc<TimeoffAccrualPlanService>>,
+    timeoff_accrual_level_service: Option<Arc<TimeoffAccrualLevelService>>,
     timeoff_balance_service: Option<Arc<TimeoffBalanceService>>,
     timeoff_request_service: Option<Arc<TimeoffRequestService>>,
     timeoff_type_service: Option<Arc<TimeoffTypeService>>,
@@ -77,6 +91,18 @@ impl AppStateBuilder {
     /// Create a new builder.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the TimeoffAccrualPlan service.
+    pub fn with_timeoff_accrual_plan_service(mut self, service: Arc<TimeoffAccrualPlanService>) -> Self {
+        self.timeoff_accrual_plan_service = Some(service);
+        self
+    }
+
+    /// Set the TimeoffAccrualLevel service.
+    pub fn with_timeoff_accrual_level_service(mut self, service: Arc<TimeoffAccrualLevelService>) -> Self {
+        self.timeoff_accrual_level_service = Some(service);
+        self
     }
 
     /// Set the TimeoffBalance service.
@@ -104,6 +130,8 @@ impl AppStateBuilder {
     /// Panics if any required service is not set.
     pub fn build(self) -> AppState {
         AppState {
+            timeoff_accrual_plan_service: self.timeoff_accrual_plan_service.expect("timeoff_accrual_plan_service is required"),
+            timeoff_accrual_level_service: self.timeoff_accrual_level_service.expect("timeoff_accrual_level_service is required"),
             timeoff_balance_service: self.timeoff_balance_service.expect("timeoff_balance_service is required"),
             timeoff_request_service: self.timeoff_request_service.expect("timeoff_request_service is required"),
             timeoff_type_service: self.timeoff_type_service.expect("timeoff_type_service is required"),

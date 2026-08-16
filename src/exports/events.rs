@@ -11,6 +11,60 @@ use chrono::{DateTime, Utc};
 use super::types::*;
 
 // ============================================================================
+// TIMEOFFACCRUALPLAN EVENTS
+// ============================================================================
+
+/// Event published when a TimeoffAccrualPlan is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualPlanCreatedEvent {
+    pub id: TimeoffAccrualPlanId,
+    pub data: TimeoffAccrualPlanDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a TimeoffAccrualPlan is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualPlanUpdatedEvent {
+    pub id: TimeoffAccrualPlanId,
+    pub data: TimeoffAccrualPlanDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a TimeoffAccrualPlan is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualPlanDeletedEvent {
+    pub id: TimeoffAccrualPlanId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// TIMEOFFACCRUALLEVEL EVENTS
+// ============================================================================
+
+/// Event published when a TimeoffAccrualLevel is created
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualLevelCreatedEvent {
+    pub id: TimeoffAccrualLevelId,
+    pub data: TimeoffAccrualLevelDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a TimeoffAccrualLevel is updated
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualLevelUpdatedEvent {
+    pub id: TimeoffAccrualLevelId,
+    pub data: TimeoffAccrualLevelDto,
+    pub occurred_at: DateTime<Utc>,
+}
+
+/// Event published when a TimeoffAccrualLevel is deleted
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeoffAccrualLevelDeletedEvent {
+    pub id: TimeoffAccrualLevelId,
+    pub occurred_at: DateTime<Utc>,
+}
+
+// ============================================================================
 // TIMEOFFBALANCE EVENTS
 // ============================================================================
 
@@ -99,6 +153,12 @@ pub struct TimeoffTypeDeletedEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum TimeoffEvent {
+    TimeoffAccrualPlanCreated(TimeoffAccrualPlanCreatedEvent),
+    TimeoffAccrualPlanUpdated(TimeoffAccrualPlanUpdatedEvent),
+    TimeoffAccrualPlanDeleted(TimeoffAccrualPlanDeletedEvent),
+    TimeoffAccrualLevelCreated(TimeoffAccrualLevelCreatedEvent),
+    TimeoffAccrualLevelUpdated(TimeoffAccrualLevelUpdatedEvent),
+    TimeoffAccrualLevelDeleted(TimeoffAccrualLevelDeletedEvent),
     TimeoffBalanceCreated(TimeoffBalanceCreatedEvent),
     TimeoffBalanceUpdated(TimeoffBalanceUpdatedEvent),
     TimeoffBalanceDeleted(TimeoffBalanceDeletedEvent),

@@ -56,8 +56,13 @@ pub struct TimeoffApprovalRow {
     pub timeoff_type_id: Uuid,
     pub days: Decimal,
     pub date_start: NaiveDate,
+    pub date_end: NaiveDate,
     pub status: String,
     pub is_paid: bool,
+    /// The approvals seam link (Wave 1 P1): set when the request was filed with
+    /// a wired `ApprovalFiling` port — `approve_request` then requires the
+    /// linked ApprovalRequest to be approved (TR2).
+    pub approval_request_id: Option<Uuid>,
 }
 
 /// What the cancellation path reads before it restores. Mirrors backbone-hr's `LeaveCancelRow`.
@@ -68,6 +73,22 @@ pub struct TimeoffCancelRow {
     pub days: Decimal,
     pub date_start: NaiveDate,
     pub status: String,
+}
+
+/// A new request as the submit verb builds it (Wave 1 P1). `id` is
+/// client-generated so the approvals filing can carry it as the correlation id
+/// BEFORE the row exists (file-first ordering — see
+/// `TimeoffRequestWriteService::submit_request`).
+pub struct TimeoffRequestDraft {
+    pub id: Uuid,
+    pub company_id: Uuid,
+    pub timeoff_type_id: Uuid,
+    pub employee_id: Uuid,
+    pub date_start: NaiveDate,
+    pub date_end: NaiveDate,
+    pub note: Option<String>,
+    /// Set when a wired `ApprovalFiling` port already filed the approval.
+    pub approval_request_id: Option<Uuid>,
 }
 
 /// Hand-written TimeoffRequest SQL — both the read-port and the approve/reject/cancel transitions.
@@ -150,7 +171,8 @@ impl TimeoffRequestRepository {
             sqlx::query(
                 r#"SELECT tr.company_id, tr.employee_id, tr.timeoff_type_id,
                           (tr.date_end - tr.date_start + 1)::numeric AS days,
-                          tr.date_start, tr.status::text AS status, tt.is_paid
+                          tr.date_start, tr.date_end, tr.status::text AS status, tt.is_paid,
+                          tr.approval_request_id
                    FROM timeoff.timeoff_requests tr
                    JOIN timeoff.timeoff_types tt ON tt.id = tr.timeoff_type_id
                    WHERE tr.id=$1 AND (tr.metadata->>'deleted_at') IS NULL"#,
@@ -161,7 +183,9 @@ impl TimeoffRequestRepository {
         Ok(row.map(|r| TimeoffApprovalRow {
             company_id: r.get("company_id"), employee_id: r.get("employee_id"),
             timeoff_type_id: r.get("timeoff_type_id"), days: r.get("days"),
-            date_start: r.get("date_start"), status: r.get("status"), is_paid: r.get("is_paid"),
+            date_start: r.get("date_start"), date_end: r.get("date_end"),
+            status: r.get("status"), is_paid: r.get("is_paid"),
+            approval_request_id: r.get("approval_request_id"),
         }))
     }
 
@@ -272,6 +296,33 @@ impl TimeoffRequestRepository {
                WHERE id=$1 AND status='approved'::timeoff_request_status"#,
         )
         .bind(timeoff_request_id)
+        .execute(conn)
+        .await?;
+        Ok(done.rows_affected())
+    }
+
+    /// Insert a fresh `pending` request. Takes the CALLER'S connection (the
+    /// company is bound on it). Returns rows affected: 0 = rejected by a
+    /// constraint (e.g. the type does not exist).
+    pub async fn insert_pending(
+        &self,
+        conn: &mut sqlx::PgConnection,
+        d: &TimeoffRequestDraft,
+    ) -> Result<u64, sqlx::Error> {
+        let done = sqlx::query(
+            r#"INSERT INTO timeoff.timeoff_requests
+                   (id, company_id, timeoff_type_id, employee_id,
+                    date_start, date_end, note, approval_request_id, status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending'::timeoff_request_status)"#,
+        )
+        .bind(d.id)
+        .bind(d.company_id)
+        .bind(d.timeoff_type_id)
+        .bind(d.employee_id)
+        .bind(d.date_start)
+        .bind(d.date_end)
+        .bind(&d.note)
+        .bind(d.approval_request_id)
         .execute(conn)
         .await?;
         Ok(done.rows_affected())

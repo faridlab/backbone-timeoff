@@ -5,10 +5,14 @@
 pub mod shared_types;
 pub use shared_types::{ValidationError, ValidationErrors, ValidationResult, EntityValidator};
 
+pub mod timeoff_accrual_plan_validator;
+pub mod timeoff_accrual_level_validator;
 pub mod timeoff_balance_validator;
 pub mod timeoff_request_validator;
 pub mod timeoff_type_validator;
 
+pub use timeoff_accrual_plan_validator::{TimeoffAccrualPlanValidator, timeoff_accrual_plan_validator};
+pub use timeoff_accrual_level_validator::{TimeoffAccrualLevelValidator, timeoff_accrual_level_validator};
 pub use timeoff_balance_validator::{TimeoffBalanceValidator, timeoff_balance_validator};
 pub use timeoff_request_validator::{TimeoffRequestValidator, timeoff_request_validator};
 pub use timeoff_type_validator::{TimeoffTypeValidator, timeoff_type_validator};

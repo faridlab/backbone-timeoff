@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, NaiveDate};
 use rust_decimal::Decimal;
 
 #[cfg(feature = "openapi")]
@@ -47,6 +47,18 @@ pub struct CreateTimeoffBalanceDto {
     pub period: String,
     pub allocated: Decimal,
     pub used: Decimal,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "accrual_plan_id")]
+    pub accrual_plan_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "date_from")]
+    pub date_from: Option<NaiveDate>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "date_to")]
+    pub date_to: Option<NaiveDate>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "last_accrual_at")]
+    pub last_accrual_at: Option<DateTime<Utc>>,
+    #[serde(alias = "carried_over")]
+    pub carried_over: Decimal,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "expired_at")]
+    pub expired_at: Option<DateTime<Utc>>,
 }
 
 // =============================================================================
@@ -76,6 +88,18 @@ pub struct UpdateTimeoffBalanceDto {
     pub period: String,
     pub allocated: Decimal,
     pub used: Decimal,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "accrual_plan_id")]
+    pub accrual_plan_id: Option<Uuid>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "date_from")]
+    pub date_from: Option<NaiveDate>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "date_to")]
+    pub date_to: Option<NaiveDate>,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "last_accrual_at")]
+    pub last_accrual_at: Option<DateTime<Utc>>,
+    #[serde(alias = "carried_over")]
+    pub carried_over: Decimal,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "expired_at")]
+    pub expired_at: Option<DateTime<Utc>>,
 }
 
 // =============================================================================
@@ -108,12 +132,24 @@ pub struct PatchTimeoffBalanceDto {
     pub allocated: Option<Decimal>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub used: Option<Decimal>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "accrual_plan_id")]
+    pub accrual_plan_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "date_from")]
+    pub date_from: Option<NaiveDate>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "date_to")]
+    pub date_to: Option<NaiveDate>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "last_accrual_at")]
+    pub last_accrual_at: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "carried_over")]
+    pub carried_over: Option<Decimal>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "expired_at")]
+    pub expired_at: Option<DateTime<Utc>>,
 }
 
 impl PatchTimeoffBalanceDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some() || self.allocated.is_some() || self.used.is_some()
+        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some() || self.allocated.is_some() || self.used.is_some() || self.accrual_plan_id.is_some() || self.date_from.is_some() || self.date_to.is_some() || self.last_accrual_at.is_some() || self.carried_over.is_some() || self.expired_at.is_some()
     }
 }
 
@@ -141,6 +177,12 @@ pub struct TimeoffBalanceResponseDto {
     pub period: String,
     pub allocated: Decimal,
     pub used: Decimal,
+    pub accrual_plan_id: Option<Uuid>,
+    pub date_from: Option<NaiveDate>,
+    pub date_to: Option<NaiveDate>,
+    pub last_accrual_at: Option<DateTime<Utc>>,
+    pub carried_over: Decimal,
+    pub expired_at: Option<DateTime<Utc>>,
     pub metadata: AuditMetadata,
 }
 
@@ -218,6 +260,12 @@ impl From<TimeoffBalance> for TimeoffBalanceResponseDto {
             period: entity.period,
             allocated: entity.allocated,
             used: entity.used,
+            accrual_plan_id: entity.accrual_plan_id,
+            date_from: entity.date_from,
+            date_to: entity.date_to,
+            last_accrual_at: entity.last_accrual_at,
+            carried_over: entity.carried_over,
+            expired_at: entity.expired_at,
             metadata: entity.metadata,
         }
     }
@@ -246,6 +294,12 @@ impl From<CreateTimeoffBalanceDto> for TimeoffBalance {
             period: dto.period,
             allocated: dto.allocated,
             used: dto.used,
+            accrual_plan_id: dto.accrual_plan_id,
+            date_from: dto.date_from,
+            date_to: dto.date_to,
+            last_accrual_at: dto.last_accrual_at,
+            carried_over: dto.carried_over,
+            expired_at: dto.expired_at,
             metadata: AuditMetadata::default(),
         }
     }
@@ -261,6 +315,12 @@ impl From<&TimeoffBalance> for TimeoffBalanceResponseDto {
             period: entity.period.clone(),
             allocated: entity.allocated.clone(),
             used: entity.used.clone(),
+            accrual_plan_id: entity.accrual_plan_id.clone(),
+            date_from: entity.date_from.clone(),
+            date_to: entity.date_to.clone(),
+            last_accrual_at: entity.last_accrual_at.clone(),
+            carried_over: entity.carried_over.clone(),
+            expired_at: entity.expired_at.clone(),
             metadata: entity.metadata.clone(),
         }
     }
@@ -280,6 +340,12 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffBalanceDto> for TimeoffBalance {
         self.period = dto.period;
         self.allocated = dto.allocated;
         self.used = dto.used;
+        self.accrual_plan_id = dto.accrual_plan_id;
+        self.date_from = dto.date_from;
+        self.date_to = dto.date_to;
+        self.last_accrual_at = dto.last_accrual_at;
+        self.carried_over = dto.carried_over;
+        self.expired_at = dto.expired_at;
         Ok(self)
     }
 }

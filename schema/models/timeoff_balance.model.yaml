@@ -6,6 +6,12 @@
 # so `used + days <= allocated`) — the load-bearing invariant of the module (you
 # cannot approve leave you don't have). Posts NO GL.
 #
+# Wave 1 P1 (H-2) — the accrual columns: a balance may carry an accrual plan
+# (`accrual_plan_id`), a validity window (`date_from`/`date_to`; date_to past = the
+# balance expires and the cron stamps `expired_at`), and the accrual walk's watermark
+# (`last_accrual_at` — grants are computed from it, so re-runs never double-grant).
+# `carried_over` holds over-cap units postponed into the next grant (HLB-18).
+#
 # Invariant backstop: the `@non_negative` attributes below emit column CHECKs
 # (`allocated >= 0`, `used >= 0`) in the generated create-table migration. The
 # cross-field `used <= allocated` CHECK is NOT expressible in schema YAML (the
@@ -47,6 +53,26 @@ models:
         type: decimal
         attributes: ["@required", "@default(0)", "@precision(18,2)", "@non_negative"]
         description: "Days consumed by approved requests (never exceeds allocated)"
+      accrual_plan_id:
+        type: uuid?
+        attributes: ["@foreign_key(TimeoffAccrualPlan.id)"]
+        description: "Accrual schedule this balance grows by # FK timeoff_accrual_plans.id (in-module)"
+      date_from:
+        type: date?
+        description: "Validity window start (NULL = open)"
+      date_to:
+        type: date?
+        description: "Validity window end / expiry date (NULL = never expires)"
+      last_accrual_at:
+        type: datetime?
+        description: "Accrual watermark — grants are computed from here; NULL = never run"
+      carried_over:
+        type: decimal
+        attributes: ["@default(0)", "@precision(18,2)", "@non_negative"]
+        description: "Over-cap units postponed into the next grant (HLB-18)"
+      expired_at:
+        type: datetime?
+        description: "Stamped by the accrual cron when date_to has passed"
       metadata:
         type: Metadata
         attributes: ["@audit_metadata"]

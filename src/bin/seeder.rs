@@ -12,6 +12,8 @@ use sqlx::postgres::PgPoolOptions;
 use std::env;
 
 // Import seeders
+use backbone_timeoff::seeders::SeedTimeoffAccrualPlanSeeder;
+use backbone_timeoff::seeders::SeedTimeoffAccrualLevelSeeder;
 use backbone_timeoff::seeders::SeedTimeoffBalanceSeeder;
 use backbone_timeoff::seeders::SeedTimeoffRequestSeeder;
 use backbone_timeoff::seeders::SeedTimeoffTypeSeeder;
@@ -27,7 +29,7 @@ async fn main() -> Result<()> {
         .map(|s| s.as_str());
 
     let database_url = env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+        .map_err(|e| anyhow::anyhow!("DATABASE_URL must be set: {e}"))?;
 
     println!("Connecting to database...");
 
@@ -43,6 +45,8 @@ async fn main() -> Result<()> {
 
     // Register seeders in order
     let mut seeders: Vec<Box<dyn Seeder + Send + Sync>> = Vec::new();
+    seeders.push(Box::new(SeedTimeoffAccrualPlanSeeder::new()));
+    seeders.push(Box::new(SeedTimeoffAccrualLevelSeeder::new()));
     seeders.push(Box::new(SeedTimeoffBalanceSeeder::new()));
     seeders.push(Box::new(SeedTimeoffRequestSeeder::new()));
     seeders.push(Box::new(SeedTimeoffTypeSeeder::new()));

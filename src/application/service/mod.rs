@@ -7,6 +7,8 @@
 pub mod error;
 pub use error::{ServiceError, ServiceResult};
 
+pub mod timeoff_accrual_plan_service;
+pub mod timeoff_accrual_level_service;
 pub mod timeoff_balance_service;
 pub mod timeoff_request_service;
 pub mod timeoff_type_service;
@@ -20,12 +22,26 @@ pub mod timeoff_query_service;
 // with tx-gated balance draw + restore. Ported verbatim from backbone-hr's `hr_write_service.rs`.
 pub mod timeoff_request_service_custom;
 pub use timeoff_request_service_custom::{TimeoffError, TimeoffRequestWriteService};
+// The accrual engine (Wave 1 P1, H-2): the daily self-arming walk granting per frequency,
+// capping at maximum_leave, postponing or losing over-cap days, stamping validity expiry.
+// `run_accrual` is the `scheduled_jobs.accrual_update` handler.
+pub mod accrual_service;
+pub use accrual_service::{AccrualError, AccrualRunOutcome, AccrualService};
+// The approvals seam (Wave 1 P1, H-2): port trait the composing app implements against
+// backbone-approvals once the H-9 engine lands; default `UnwiredApprovals` keeps the
+// module standalone (ADR-0004: no crate edge on approvals).
+pub mod approvals_port;
+pub use approvals_port::{
+    ApprovalFiling, ApprovalFilingRequest, ApprovalSeamError, ApprovalVerdict, UnwiredApprovals,
+};
 // ADR-005 consumer: the timeoff-side receiver for the `offboarding.closed` compound event. Zeroes the
 // leaver's remaining leave balance (paid out via payroll's OffboardingSettlementHandler) idempotently
 // (inbox dedup on the envelope id). Registered on the integration bus in backbone-hr-app's main.rs.
 pub mod offboarding_encash_handler;
 // END CUSTOM
 
+pub use timeoff_accrual_plan_service::TimeoffAccrualPlanService;
+pub use timeoff_accrual_level_service::TimeoffAccrualLevelService;
 pub use timeoff_balance_service::TimeoffBalanceService;
 pub use timeoff_request_service::TimeoffRequestService;
 pub use timeoff_type_service::TimeoffTypeService;

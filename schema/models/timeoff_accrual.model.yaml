@@ -1,0 +1,145 @@
+# =============================================================================
+# Domain: Timeoff
+# Entities: TimeoffAccrualPlan, TimeoffAccrualLevel
+# Description: The accrual half of hr_holidays (Wave 1 P1, H-2). A plan targets one
+# timeoff type and walks its levels in sequence; each level grants `added_value`
+# units per `frequency` once its seniority threshold (`start_count` × `start_type`)
+# has elapsed since the balance's validity start. The daily grant walk (multi-level,
+# capped, carry-over, expiry) lives in the hand-authored accrual_service — the cron
+# is declared in schema/hooks/index.hook.yaml (posture: self_arming, ADR-0020).
+# Spec: metaphora docs/odoo/human-resources/hr/hr-holidays-expense-business-logic.md
+# §1 (HLB-16/17/18, HLM-10 — the 7+1 frequencies, the while-loop, the cap, the
+# carry-over, the validity-window expiration).
+# =============================================================================
+
+models:
+  - name: TimeoffAccrualPlan
+    collection: timeoff_accrual_plans
+    description: "An accrual schedule for one timeoff type (levels walked in sequence)"
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique plan id"
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK to organization.Company.id"
+      timeoff_type_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(TimeoffType.id)"]
+        description: "The leave type this plan accrues # FK timeoff_types.id (in-module)"
+      name:
+        type: string
+        attributes: ["@required", "@max(120)"]
+        description: "Plan name (e.g. 'Annual — staff')"
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+    indexes:
+      - type: index
+        fields: [company_id, timeoff_type_id]
+
+  - name: TimeoffAccrualLevel
+    collection: timeoff_accrual_levels
+    description: "One step of an accrual plan: grant added_value per frequency past a seniority threshold, capped, with a lost-days policy"
+    fields:
+      id:
+        type: uuid
+        attributes: ["@id", "@default(uuid)"]
+        description: "Unique level id"
+      company_id:
+        type: uuid
+        attributes: ["@required", "@exclude_from_foreign_key_check"]
+        description: "Org owner # logical FK to organization.Company.id"
+      plan_id:
+        type: uuid
+        attributes: ["@required", "@foreign_key(TimeoffAccrualPlan.id)"]
+        description: "The plan this level belongs to # FK timeoff_accrual_plans.id (in-module)"
+      sequence:
+        type: integer
+        attributes: ["@required"]
+        description: "Walk order within the plan (the applicable level is the last whose threshold has elapsed)"
+      start_count:
+        type: decimal
+        attributes: ["@required", "@default(0)", "@precision(18,2)", "@non_negative"]
+        description: "Seniority threshold before this level applies"
+      start_type:
+        type: AccrualStartType
+        attributes: ["@required", "@default(years)"]
+        description: "Unit of the threshold (days/months/years since validity start)"
+      frequency:
+        type: AccrualFrequency
+        attributes: ["@required", "@default(monthly)"]
+        description: "Grant cadence (HLM-10: 7 recurring + once)"
+      added_value:
+        type: decimal
+        attributes: ["@required", "@precision(18,2)", "@non_negative"]
+        description: "Units granted per period"
+      is_added_based_on_worked_time:
+        type: boolean
+        attributes: ["@default(false)"]
+        description: "Grant proportional to attendance instead of flat (reads attendance when wired)"
+      maximum_leave:
+        type: decimal?
+        attributes: ["@precision(18,2)", "@non_negative"]
+        description: "Cap on accrued total (NULL = uncapped)"
+      action_with_lost_days:
+        type: AccrualLostDaysAction
+        attributes: ["@required", "@default(nothing)"]
+        description: "Over-cap policy (HLB-18): discard, or postpone into the next grant"
+      postponed_max_days:
+        type: decimal?
+        attributes: ["@precision(18,2)", "@non_negative"]
+        description: "Bound on postponed over-cap units per grant (NULL = unbounded)"
+      metadata:
+        type: Metadata
+        attributes: ["@audit_metadata"]
+        description: "Audit metadata"
+    indexes:
+      - type: unique
+        fields: [plan_id, sequence]
+        where: "deleted_at IS NULL"
+
+enums:
+  - name: AccrualFrequency
+    description: "Accrual grant cadence (the 7+1 of HLM-10)"
+    variants:
+      - name: daily
+        description: "Granted every day"
+      - name: weekly
+        description: "Granted every week"
+      - name: biweekly
+        description: "Granted every two weeks"
+      - name: monthly
+        default: true
+        description: "Granted every month"
+      - name: bimonthly
+        description: "Granted every two months"
+      - name: quarterly
+        description: "Granted every quarter"
+      - name: yearly
+        description: "Granted every year"
+      - name: once
+        description: "Granted a single time when the level applies"
+
+  - name: AccrualStartType
+    description: "Unit of a level's seniority threshold"
+    variants:
+      - name: days
+        description: "Days since validity start"
+      - name: months
+        description: "Months since validity start"
+      - name: years
+        default: true
+        description: "Years since validity start"
+
+  - name: AccrualLostDaysAction
+    description: "What happens to over-cap units (HLB-18)"
+    variants:
+      - name: nothing
+        default: true
+        description: "Discarded"
+      - name: postponed_to_next_accrual
+        description: "Carried into the next grant, up to postponed_max_days"

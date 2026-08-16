@@ -11,6 +11,34 @@ mod integration;
 use integration::tests::*;
 
 #[tokio::test]
+async fn test_timeoff_accrual_plan_api() {
+    let mut test = TimeoffAccrualPlanApiTest::new();
+    let results = test.run_all().await;
+
+    let failed: Vec<_> = results.iter().filter(|r| !r.success).collect();
+    if !failed.is_empty() {
+        for f in &failed {
+            eprintln!("FAILED: {} - {}", f.test_name, f.details);
+        }
+        panic!("{} tests failed", failed.len());
+    }
+}
+
+#[tokio::test]
+async fn test_timeoff_accrual_level_api() {
+    let mut test = TimeoffAccrualLevelApiTest::new();
+    let results = test.run_all().await;
+
+    let failed: Vec<_> = results.iter().filter(|r| !r.success).collect();
+    if !failed.is_empty() {
+        for f in &failed {
+            eprintln!("FAILED: {} - {}", f.test_name, f.details);
+        }
+        panic!("{} tests failed", failed.len());
+    }
+}
+
+#[tokio::test]
 async fn test_timeoff_balance_api() {
     let mut test = TimeoffBalanceApiTest::new();
     let results = test.run_all().await;

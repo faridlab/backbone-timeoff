@@ -9,10 +9,14 @@ use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::PgPool;
 
+mod timeoff_accrual_plan_seeder;
+mod timeoff_accrual_level_seeder;
 mod timeoff_balance_seeder;
 mod timeoff_request_seeder;
 mod timeoff_type_seeder;
 
+pub use timeoff_accrual_plan_seeder::SeedTimeoffAccrualPlanSeeder;
+pub use timeoff_accrual_level_seeder::SeedTimeoffAccrualLevelSeeder;
 pub use timeoff_balance_seeder::SeedTimeoffBalanceSeeder;
 pub use timeoff_request_seeder::SeedTimeoffRequestSeeder;
 pub use timeoff_type_seeder::SeedTimeoffTypeSeeder;

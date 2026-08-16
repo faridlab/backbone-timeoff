@@ -13,13 +13,16 @@
 //! TODO at each commit point.
 
 use backbone_orm::company_scope;
-use chrono::Datelike;
+use chrono::{Datelike, Utc};
 use sqlx::PgPool;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::infrastructure::persistence::{
-    TimeoffBalanceRepository, TimeoffRequestRepository,
+    TimeoffBalanceRepository, TimeoffRequestRepository, TimeoffRequestDraft,
 };
+
+use super::approvals_port::{ApprovalFiling, ApprovalFilingRequest, UnwiredApprovals};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TimeoffError {
@@ -31,6 +34,15 @@ pub enum TimeoffError {
     InvalidState(&'static str),
     #[error("insufficient timeoff balance")]
     InsufficientBalance,
+    /// TR2 (Wave 1 P1): the request is linked to an approvals.ApprovalRequest
+    /// whose verdict is not `approved` — the timeoff verb refuses to grant.
+    #[error("approval not granted for the linked approval request")]
+    ApprovalNotGranted,
+    /// The approvals seam itself failed (unwired port, unknown filing,
+    /// transport). Failing closed: a request linked into the engine never
+    /// bypasses it via a seam error.
+    #[error("approvals seam: {0}")]
+    ApprovalSeam(#[from] super::approvals_port::ApprovalSeamError),
 }
 
 /// The hand-authored TimeoffRequest write service — owns the leave-drawdown invariant.
@@ -43,13 +55,85 @@ pub struct TimeoffRequestWriteService {
     pool: PgPool,
     requests: TimeoffRequestRepository,
     balances: TimeoffBalanceRepository,
+    /// The approvals seam (Wave 1 P1, H-2). Defaults to [`UnwiredApprovals`] —
+    /// the module behaves exactly as before until the composing app wires a
+    /// real port against backbone-approvals (H-9). ADR-0004: no crate edge.
+    approvals: Arc<dyn ApprovalFiling>,
 }
 
 impl TimeoffRequestWriteService {
     pub fn new(pool: PgPool) -> Self {
         let requests = TimeoffRequestRepository::new(pool.clone());
         let balances = TimeoffBalanceRepository::new(pool.clone());
-        Self { pool, requests, balances }
+        Self { pool, requests, balances, approvals: Arc::new(UnwiredApprovals) }
+    }
+
+    /// Supply the approvals port (the composing app's adapter against
+    /// backbone-approvals). After this, `submit_request` files every request
+    /// and `approve_request` honors the engine's verdict (TR2).
+    pub fn with_approvals(mut self, port: Arc<dyn ApprovalFiling>) -> Self {
+        self.approvals = port;
+        self
+    }
+
+    /// Submit a new leave request (Wave 1 P1): creates it `pending`, and — when
+    /// the approvals seam is wired — files it with the engine and stamps the
+    /// link. File-first ordering: the filing carries the client-generated
+    /// request id, so the insert lands with `approval_request_id` already set;
+    /// a wiring failure fails the submit (no silently untracked request).
+    pub async fn submit_request(
+        &self,
+        company_id: Uuid,
+        timeoff_type_id: Uuid,
+        employee_id: Uuid,
+        date_start: chrono::NaiveDate,
+        date_end: chrono::NaiveDate,
+        note: Option<String>,
+    ) -> Result<Uuid, TimeoffError> {
+        let request_id = Uuid::new_v4();
+        // File first (outside any tx — the port is a network call to the
+        // approvals side; holding a row lock across it is worse than an orphaned
+        // filing on a failed insert, which the H-9 engine's sweeper can reap).
+        let filing = ApprovalFilingRequest {
+            company_id,
+            timeoff_request_id: request_id,
+            employee_id,
+            timeoff_type_id,
+            date_start,
+            date_end,
+            days: chrono_days_inclusive(date_start, date_end),
+            note: note.clone(),
+            submitted_at: Utc::now(),
+        };
+        let approval_request_id = match self.approvals.file(&filing).await {
+            Ok(id) => Some(id),
+            // Unwired seam = this deployment doesn't track approvals: the
+            // request simply carries no link (module behaves as pre-P1).
+            Err(super::approvals_port::ApprovalSeamError::Unwired) => None,
+            // A WIRED port that fails is a real failure — fail the submit
+            // rather than create a request the engine doesn't know about.
+            Err(e) => return Err(e.into()),
+        };
+
+        let mut tx = self.pool.begin().await?;
+        company_scope::bind_company_on(&mut tx, company_id).await?;
+        let draft = TimeoffRequestDraft {
+            id: request_id,
+            company_id,
+            timeoff_type_id,
+            employee_id,
+            date_start,
+            date_end,
+            note,
+            approval_request_id,
+        };
+        let inserted = self.requests.insert_pending(&mut tx, &draft).await?;
+        if inserted != 1 {
+            tx.rollback().await?;
+            return Err(TimeoffError::InvalidState("request rejected — check the timeoff type"));
+        }
+        tx.commit().await?;
+        Ok(request_id)
     }
 
     /// Approve a timeoff request — THE invariant. Draws down the employee's balance for the timeoff
@@ -77,6 +161,28 @@ impl TimeoffRequestWriteService {
         let employee_id = app.employee_id;
         let timeoff_type_id = app.timeoff_type_id;
         let days = app.days;
+        let date_start = app.date_start;
+        let date_end = app.date_end;
+
+        // TR2 (Wave 1 P1, H-2): a request linked into the approvals engine is
+        // granted only by the engine. The seam check happens BEFORE the tx: the
+        // verdict read is a port call (network), and the transition below only
+        // moves pending rows anyway, so a verdict flip mid-tx can at worst turn
+        // a would-be approval into this same error on retry.
+        if let Some(approval_request_id) = app.approval_request_id {
+            use super::approvals_port::{ApprovalSeamError, ApprovalVerdict};
+            match self.approvals.status(approval_request_id).await {
+                Ok(ApprovalVerdict::Approved) => {}
+                Ok(_) => return Err(TimeoffError::ApprovalNotGranted),
+                // Unwired port + a linked request = out-of-band linkage (PATCH)
+                // or a deployment regression — fail CLOSED: never bypass the
+                // engine a request was filed into.
+                Err(ApprovalSeamError::Unwired) | Err(ApprovalSeamError::UnknownApprovalRequest(_)) => {
+                    return Err(TimeoffError::ApprovalNotGranted);
+                }
+                Err(e) => return Err(e.into()),
+            }
+        }
         // `is_paid` is read for the (future) `RequestApproved` event payload — unused until the
         // outbox/compound-event phase lands (ADR-005). Bound here to keep the read faithful to
         // backbone-hr's `find_for_approval`.
@@ -95,9 +201,11 @@ impl TimeoffRequestWriteService {
             tx.rollback().await?;
             return Err(TimeoffError::InvalidState("timeoff request is not pending"));
         }
-        // Gate on availability: draw only if used + days <= allocated.
+        // Gate on availability AND the accrual validity window: draw only if
+        // `used + days <= allocated` and `[date_start, date_end]` fits the
+        // balance's `[date_from, date_to]` (open bounds when NULL).
         let drawn = self.balances
-            .draw(&mut tx, employee_id, timeoff_type_id, &period, days)
+            .draw(&mut tx, employee_id, timeoff_type_id, &period, days, date_start, date_end)
             .await?;
         if drawn != 1 {
             tx.rollback().await?;
@@ -173,4 +281,13 @@ impl TimeoffRequestWriteService {
         // sink once that phase lands (ADR-005).
         Ok(())
     }
+}
+
+/// The inclusive day span `[start, end]` as Decimal — the same span SQL the
+/// approve path computes (`date_end - date_start + 1`), kept identical here so
+/// the filed approval shows the days the draw will take.
+fn chrono_days_inclusive(start: chrono::NaiveDate, end: chrono::NaiveDate) -> rust_decimal::Decimal {
+    use rust_decimal::prelude::ToPrimitive;
+    let days = (end - start).num_days() + 1;
+    rust_decimal::Decimal::from(days.max(0).to_i64().unwrap_or(0))
 }

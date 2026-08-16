@@ -48,12 +48,13 @@ pub struct TimeoffBalanceFilter {
     pub timeoff_type_id: Option<Uuid>,
     pub employee_id: Option<Uuid>,
     pub period: Option<String>,
+    pub accrual_plan_id: Option<Uuid>,
 }
 
 impl TimeoffBalanceFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some()
+        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some() || self.accrual_plan_id.is_some()
     }
 }
 

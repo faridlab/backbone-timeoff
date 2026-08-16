@@ -61,7 +61,7 @@ pub struct TimeoffType {
 impl TimeoffType {
     /// Create a builder for TimeoffType
     pub fn builder() -> TimeoffTypeBuilder {
-        TimeoffTypeBuilder::default()
+        <TimeoffTypeBuilder as Default>::default()
     }
 
     /// Create a new TimeoffType with required fields

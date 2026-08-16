@@ -6,11 +6,25 @@
 //! Implementations should be in the infrastructure layer.
 
 
+pub mod timeoff_accrual_plan_repository;
+pub mod timeoff_accrual_level_repository;
 pub mod timeoff_balance_repository;
 pub mod timeoff_request_repository;
 pub mod timeoff_type_repository;
 
 // Re-exports
+pub use timeoff_accrual_plan_repository::{
+    TimeoffAccrualPlanRepository,
+    TimeoffAccrualPlanPaginationParams,
+    TimeoffAccrualPlanPaginatedResult,
+    TimeoffAccrualPlanFilter,
+};
+pub use timeoff_accrual_level_repository::{
+    TimeoffAccrualLevelRepository,
+    TimeoffAccrualLevelPaginationParams,
+    TimeoffAccrualLevelPaginatedResult,
+    TimeoffAccrualLevelFilter,
+};
 pub use timeoff_balance_repository::{
     TimeoffBalanceRepository,
     TimeoffBalancePaginationParams,

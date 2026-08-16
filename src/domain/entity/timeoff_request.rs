@@ -57,6 +57,7 @@ pub struct TimeoffRequest {
     pub date_end: NaiveDate,
     pub note: Option<String>,
     pub approval_employee_id: Option<Uuid>,
+    pub approval_request_id: Option<Uuid>,
     pub note_reject: Option<String>,
     pub status: TimeoffRequestStatus,
     #[serde(default)]
@@ -67,7 +68,7 @@ pub struct TimeoffRequest {
 impl TimeoffRequest {
     /// Create a builder for TimeoffRequest
     pub fn builder() -> TimeoffRequestBuilder {
-        TimeoffRequestBuilder::default()
+        <TimeoffRequestBuilder as Default>::default()
     }
 
     /// Create a new TimeoffRequest with required fields
@@ -81,6 +82,7 @@ impl TimeoffRequest {
             date_end,
             note: None,
             approval_employee_id: None,
+            approval_request_id: None,
             note_reject: None,
             status,
             metadata: AuditMetadata::default(),
@@ -159,6 +161,12 @@ impl TimeoffRequest {
         self
     }
 
+    /// Set the approval_request_id field (chainable)
+    pub fn with_approval_request_id(mut self, value: Uuid) -> Self {
+        self.approval_request_id = Some(value);
+        self
+    }
+
     /// Set the note_reject field (chainable)
     pub fn with_note_reject(mut self, value: String) -> Self {
         self.note_reject = Some(value);
@@ -193,6 +201,9 @@ impl TimeoffRequest {
                 }
                 "approval_employee_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.approval_employee_id = v; }
+                }
+                "approval_request_id" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.approval_request_id = v; }
                 }
                 "note_reject" => {
                     if let Ok(v) = serde_json::from_value(value) { self.note_reject = v; }
@@ -258,6 +269,7 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("approval_employee_id".to_string(), "uuid".to_string());
+        m.insert("approval_request_id".to_string(), "uuid".to_string());
         m.insert("status".to_string(), "timeoff_request_status".to_string());
         m
     }
@@ -282,6 +294,7 @@ pub struct TimeoffRequestBuilder {
     date_end: Option<NaiveDate>,
     note: Option<String>,
     approval_employee_id: Option<Uuid>,
+    approval_request_id: Option<Uuid>,
     note_reject: Option<String>,
     status: Option<TimeoffRequestStatus>,
 }
@@ -329,6 +342,12 @@ impl TimeoffRequestBuilder {
         self
     }
 
+    /// Set the approval_request_id field (optional)
+    pub fn approval_request_id(mut self, value: Uuid) -> Self {
+        self.approval_request_id = Some(value);
+        self
+    }
+
     /// Set the note_reject field (optional)
     pub fn note_reject(mut self, value: String) -> Self {
         self.note_reject = Some(value);
@@ -360,8 +379,9 @@ impl TimeoffRequestBuilder {
             date_end,
             note: self.note,
             approval_employee_id: self.approval_employee_id,
+            approval_request_id: self.approval_request_id,
             note_reject: self.note_reject,
-            status: self.status.unwrap_or(TimeoffRequestStatus::default()),
+            status: self.status.unwrap_or_default(),
             metadata: AuditMetadata::default(),
         })
     }

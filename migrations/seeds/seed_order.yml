@@ -10,3 +10,7 @@
 - timeoff_balance_seed
 - timeoff_request_seed
 - timeoff_type_seed
+
+# Newly added seeds (preserve manual order above):
+- timeoff_accrual_plan_seed
+- timeoff_accrual_level_seed

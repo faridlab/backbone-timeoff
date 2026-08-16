@@ -45,6 +45,10 @@ models:
         type: uuid?
         attributes: ["@exclude_from_foreign_key_check"]
         description: "Approver # logical FK to employee.Employee.id"
+      approval_request_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "Linked approvals.ApprovalRequest # logical FK approvals.ApprovalRequest.id (Wave 1 P1 seam; the decision engine lands with H-9)"
       note_reject:
         type: string?
         attributes: ["@max(1000)"]

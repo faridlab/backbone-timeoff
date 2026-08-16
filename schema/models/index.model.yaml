@@ -69,3 +69,4 @@ imports:
   - timeoff_type.model.yaml
   - timeoff_request.model.yaml
   - timeoff_balance.model.yaml
+  - timeoff_accrual.model.yaml

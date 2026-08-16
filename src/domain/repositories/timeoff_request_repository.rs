@@ -49,6 +49,7 @@ pub struct TimeoffRequestFilter {
     pub employee_id: Option<Uuid>,
     pub note: Option<String>,
     pub approval_employee_id: Option<Uuid>,
+    pub approval_request_id: Option<Uuid>,
     pub note_reject: Option<String>,
     pub status: Option<TimeoffRequestStatus>,
 }
@@ -56,7 +57,7 @@ pub struct TimeoffRequestFilter {
 impl TimeoffRequestFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.note_reject.is_some() || self.status.is_some()
+        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
     }
 }
 

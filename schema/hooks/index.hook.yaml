@@ -10,6 +10,7 @@ version: 2
 # Import all hook files.
 imports:
   - example.hook.yaml
+  - timeoff_request.hook.yaml
 
 # =============================================================================
 # Module-level configuration
@@ -33,4 +34,26 @@ events: {}
 # =============================================================================
 # Scheduled jobs
 # =============================================================================
-scheduled_jobs: {}
+# The accrual walk (Wave 1 P1, H-2 — ported from hr_holidays' daily
+# `hr_leave_allocation_cron_accrual`, HLB-16/17/18). Handler:
+# `application::service::accrual_service::AccrualService::run_accrual`.
+#
+# posture: self_arming per ADR-0020 — the daily schedule is a FLOOR, not the contract.
+# The real arming is event-driven: a balance gaining/losing an accrual plan or its
+# validity window moving should arm the next run promptly (minutes, not a day), which
+# the composing app wires from these trigger sources. Interval-only wiring would
+# silently change latency behavior — the exact loss the posture declaration exists
+# to make visible at review.
+#
+# pickup_lock: the walk claims candidate balances FOR UPDATE SKIP LOCKED, so two
+# concurrent runs never double-grant (ADR-0020 §4).
+scheduled_jobs:
+  accrual_update:
+    schedule: "daily 03:00"
+    handler: "accrual_service::run_accrual"
+    posture: self_arming
+    triggers:
+      - timeoff_balance_created
+      - timeoff_balance_updated
+    commit_policy: commit_per_batch
+    pickup_lock: true
