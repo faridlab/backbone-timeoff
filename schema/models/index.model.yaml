@@ -12,6 +12,9 @@
 module: timeoff
 version: 2
 schema: timeoff
+
+# ADR-0014 company fence (Wave 1 P0 sweep, 2026-08-16): leave data is company-private: types, requests, and balances never cross companies.
+company_fence: strict
 description: "leave / absence: types, requests, balances (+ drawdown invariant)"
 
 config:
