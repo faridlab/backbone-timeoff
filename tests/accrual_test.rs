@@ -484,3 +484,44 @@ async fn fence_policies_cover_every_fenced_table() {
         assert!(policies.iter().any(|p| p == expected), "missing fence policy {expected}");
     }
 }
+
+/// The module-level swap: a module built with the default (unwired) write service is handed
+/// one armed with a real approvals port — the composition sequence a hosting service performs
+/// at startup. The module-held service must be the swapped one and file through the port.
+#[tokio::test]
+async fn module_swap_arms_the_approvals_seam() {
+    let pool = common::pool().await;
+    let company = Uuid::new_v4();
+    let employee = Uuid::new_v4();
+    let type_id = seed_type(&pool, company).await;
+    seed_balance(&pool, company, type_id, employee, "2026", Decimal::from(5), None, None, None).await;
+
+    let m = backbone_timeoff::TimeoffModule::builder()
+        .with_database(pool.clone())
+        .build()
+        .unwrap();
+    let port = FakeApprovals::new();
+    let m = m.with_timeoff_write_service(Arc::new(
+        TimeoffRequestWriteService::new(pool.clone()).with_approvals(port.clone()),
+    ));
+
+    let request_id = m
+        .timeoff_write_service()
+        .submit_request(company, type_id, employee, day(2026, 4, 6), day(2026, 4, 7), None)
+        .await
+        .unwrap();
+
+    let filings = port.filings.lock().unwrap();
+    assert_eq!(filings.len(), 1, "the swapped service files through the port");
+    assert_eq!(filings[0].timeoff_request_id, request_id);
+    drop(filings);
+
+    let linked: Option<Uuid> = sqlx::query_scalar(
+        r#"SELECT approval_request_id FROM timeoff.timeoff_requests WHERE id = $1"#,
+    )
+    .bind(request_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(linked.is_some(), "the module-held service linked the filing");
+}

@@ -143,6 +143,32 @@ impl TimeoffModule {
     }
 
     // <<< CUSTOM METHODS
+    /// The module-held validated write path (request verbs + the approvals seam).
+    pub fn timeoff_write_service(&self) -> Arc<application::service::TimeoffRequestWriteService> {
+        self.timeoff_write_service.clone()
+    }
+
+    /// Replace the write service at the composition root — the way a host arms the approvals
+    /// seam: the module builds the service internally (default-unwired), so the app builds its
+    /// own from the same pool with the port attached and swaps it in. Consuming `self` keeps
+    /// the chain reading naturally; call before mounting routes, the module is consumed once
+    /// at startup.
+    ///
+    /// ```text
+    /// let timeoff = TimeoffModule::builder()
+    ///     .with_database(pool.clone())
+    ///     .build()?
+    ///     .with_timeoff_write_service(Arc::new(
+    ///         TimeoffRequestWriteService::new(pool.clone()).with_approvals(port),
+    ///     ));
+    /// ```
+    pub fn with_timeoff_write_service(
+        mut self,
+        svc: Arc<application::service::TimeoffRequestWriteService>,
+    ) -> Self {
+        self.timeoff_write_service = svc;
+        self
+    }
     // END CUSTOM
 }
 
