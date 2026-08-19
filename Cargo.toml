@@ -1,6 +1,6 @@
 [package]
 name = "backbone-timeoff"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2021"
 description = "leave / absence: types, requests, balances (+ drawdown invariant)"
 
