@@ -34,6 +34,14 @@ pub mod approvals_port;
 pub use approvals_port::{
     ApprovalFiling, ApprovalFilingRequest, ApprovalSeamError, ApprovalVerdict, UnwiredApprovals,
 };
+// The leave-lifecycle event seam: every settling verb (approve / reject / cancel) publishes
+// `LeaveSettled` after its transaction commits. The default `LoggingSink` keeps the module
+// standalone; the composing app supplies the real sink (bus, outbox). The named consumers are
+// the timesheet leave-row regeneration and payroll leave settlement (ADR-0004: no crate edge).
+pub mod timeoff_events;
+pub use timeoff_events::{
+    LeaveSettlement, LeaveSettled, LoggingSink, TimeoffEvent, TimeoffEventSink,
+};
 // ADR-005 consumer: the timeoff-side receiver for the `offboarding.closed` compound event. Zeroes the
 // leaver's remaining leave balance (paid out via payroll's OffboardingSettlementHandler) idempotently
 // (inbox dedup on the envelope id). Registered on the integration bus in backbone-hr-app's main.rs.

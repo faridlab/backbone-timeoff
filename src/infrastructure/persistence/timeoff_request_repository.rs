@@ -65,14 +65,24 @@ pub struct TimeoffApprovalRow {
     pub approval_request_id: Option<Uuid>,
 }
 
-/// What the cancellation path reads before it restores. Mirrors backbone-hr's `LeaveCancelRow`.
+/// What the cancellation path reads before it restores. Mirrors backbone-hr's `LeaveCancelRow`;
+/// carries both window ends so the settled event can echo the full span.
 pub struct TimeoffCancelRow {
     pub company_id: Uuid,
     pub employee_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub days: Decimal,
     pub date_start: NaiveDate,
+    pub date_end: NaiveDate,
     pub status: String,
+}
+
+/// What the reject path's RETURNING hands back: the settle-relevant fields for the domain event.
+pub struct TimeoffRejectedRow {
+    pub company_id: Uuid,
+    pub employee_id: Uuid,
+    pub date_start: NaiveDate,
+    pub date_end: NaiveDate,
 }
 
 /// A new request as the submit verb builds it (Wave 1 P1). `id` is
@@ -213,26 +223,34 @@ impl TimeoffRequestRepository {
         Ok(done.rows_affected())
     }
 
-    /// Reject a pending request (no balance change). Returns rows affected: 0 = not pending.
+    /// Reject a pending request (no balance change). `Ok(None)` = not pending (or not found in
+    /// scope); a row means the rejection landed and carries the settle-relevant fields for the
+    /// `LeaveSettled` event.
     ///
-    /// ID-only: no company argument — `execute_scoped` rides the request-dedicated connection, so
-    /// another company's request is simply not matched.
+    /// ID-only: no company argument — `fetch_optional_row_scoped` rides the request-dedicated
+    /// connection, so another company's request is simply not matched.
     pub async fn mark_rejected(
         &self,
         pool: &PgPool,
         timeoff_request_id: Uuid,
-    ) -> Result<u64, sqlx::Error> {
-        let done = company_scope::execute_scoped(
+    ) -> Result<Option<TimeoffRejectedRow>, sqlx::Error> {
+        let row = company_scope::fetch_optional_row_scoped(
             pool,
             sqlx::query(
                 r#"UPDATE timeoff.timeoff_requests SET status='rejected'::timeoff_request_status
                    WHERE id=$1 AND status='pending'::timeoff_request_status
-                     AND (metadata->>'deleted_at') IS NULL"#,
+                     AND (metadata->>'deleted_at') IS NULL
+                   RETURNING company_id, employee_id, date_start, date_end"#,
             )
             .bind(timeoff_request_id),
         )
         .await?;
-        Ok(done.rows_affected())
+        Ok(row.map(|r| TimeoffRejectedRow {
+            company_id: r.get("company_id"),
+            employee_id: r.get("employee_id"),
+            date_start: r.get("date_start"),
+            date_end: r.get("date_end"),
+        }))
     }
 
     /// Read a request for cancellation. `Ok(None)` = no such live request in scope.
@@ -250,7 +268,7 @@ impl TimeoffRequestRepository {
             sqlx::query(
                 r#"SELECT company_id, employee_id, timeoff_type_id,
                           (date_end - date_start + 1)::numeric AS days,
-                          date_start, status::text AS status
+                          date_start, date_end, status::text AS status
                    FROM timeoff.timeoff_requests
                    WHERE id=$1 AND (metadata->>'deleted_at') IS NULL"#,
             )
@@ -260,7 +278,8 @@ impl TimeoffRequestRepository {
         Ok(row.map(|r| TimeoffCancelRow {
             company_id: r.get("company_id"), employee_id: r.get("employee_id"),
             timeoff_type_id: r.get("timeoff_type_id"), days: r.get("days"),
-            date_start: r.get("date_start"), status: r.get("status"),
+            date_start: r.get("date_start"), date_end: r.get("date_end"),
+            status: r.get("status"),
         }))
     }
 

@@ -26,6 +26,10 @@ user_owned:
   # restore). Ported verbatim from backbone-hr's hr_write_service.rs; preserved across regen via the
   # `*_custom.rs` suffix, but listed here for visibility alongside the repos it depends on.
   - "src/application/service/timeoff_request_service_custom.rs"
+  # The leave-lifecycle event seam: TimeoffEventSink + LeaveSettled (approved / refused /
+  # cancelled / voided) published from the write path's settling verbs — the signal the timesheet
+  # leave-row regeneration and payroll settlement consume.
+  - "src/application/service/timeoff_events.rs"
 
   # CRITICAL: exports/services.rs has the hand-written paid_leave_days trait method.
   # Without user_owned, regen OVERWRITES it and loses the port.
@@ -48,6 +52,9 @@ user_owned:
   # Wave 1 P1 (H-2): live-pool helpers + the accrual/seam behavior tests.
   - "tests/common/**"
   - "tests/accrual_test.rs"
+  # Leave-settlement event probes: the capturing-sink double proving every settling
+  # verb publishes LeaveSettled (approved / refused / cancelled / voided).
+  - "tests/leave_settlement_probe.rs"
   # - "tests/*_golden_cases.rs"
   # - "tests/integrity_probes.rs"
 

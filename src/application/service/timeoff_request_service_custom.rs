@@ -8,9 +8,9 @@
 //!
 //! Ported verbatim from backbone-hr's `hr_write_service.rs` (`approve_leave` / `reject_leave` /
 //! `cancel_leave`). The schema-driven adaptations are documented inline; the tx + gating + rollback
-//! logic is identical. The one deferral: backbone-hr emits `LeaveApproved` via an `HrEventSink`;
-//! real event emission here is deferred to the outbox/compound-event phase per ADR-005 — see the
-//! TODO at each commit point.
+//! logic is identical. Event emission follows backbone-hr's `HrEventSink` shape through the
+//! module's own `TimeoffEventSink`: each settling verb publishes `LeaveSettled` AFTER its
+//! transaction commits (a rolled-back verb never emits).
 
 use backbone_orm::company_scope;
 use chrono::{Datelike, Utc};
@@ -23,6 +23,7 @@ use crate::infrastructure::persistence::{
 };
 
 use super::approvals_port::{ApprovalFiling, ApprovalFilingRequest, UnwiredApprovals};
+use super::timeoff_events::{LeaveSettlement, LeaveSettled, LoggingSink, TimeoffEvent, TimeoffEventSink};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TimeoffError {
@@ -59,13 +60,23 @@ pub struct TimeoffRequestWriteService {
     /// the module behaves exactly as before until the composing app wires a
     /// real port against backbone-approvals (H-9). ADR-0004: no crate edge.
     approvals: Arc<dyn ApprovalFiling>,
+    /// The leave-lifecycle event seam. Defaults to [`LoggingSink`] — the module
+    /// behaves exactly as before until the composing app wires a real sink
+    /// (bus, outbox). ADR-0004: no crate edge.
+    events: Arc<dyn TimeoffEventSink>,
 }
 
 impl TimeoffRequestWriteService {
     pub fn new(pool: PgPool) -> Self {
         let requests = TimeoffRequestRepository::new(pool.clone());
         let balances = TimeoffBalanceRepository::new(pool.clone());
-        Self { pool, requests, balances, approvals: Arc::new(UnwiredApprovals) }
+        Self {
+            pool,
+            requests,
+            balances,
+            approvals: Arc::new(UnwiredApprovals),
+            events: Arc::new(LoggingSink),
+        }
     }
 
     /// Supply the approvals port (the composing app's adapter against
@@ -74,6 +85,36 @@ impl TimeoffRequestWriteService {
     pub fn with_approvals(mut self, port: Arc<dyn ApprovalFiling>) -> Self {
         self.approvals = port;
         self
+    }
+
+    /// Supply the leave-lifecycle event sink. After this, every settling verb
+    /// (`approve_request` / `reject_request` / `cancel_request`) publishes
+    /// `LeaveSettled` after its transaction commits.
+    pub fn with_events(mut self, sink: Arc<dyn TimeoffEventSink>) -> Self {
+        self.events = sink;
+        self
+    }
+
+    /// Publish a settlement off the verb's committed state. Private: the only
+    /// call sites sit immediately after a `tx.commit()` (or the lock-free
+    /// pending transitions), so a rolled-back verb never emits.
+    fn settle(
+        &self,
+        company_id: Uuid,
+        request_id: Uuid,
+        employee_id: Uuid,
+        date_from: chrono::NaiveDate,
+        date_to: chrono::NaiveDate,
+        settlement: LeaveSettlement,
+    ) {
+        self.events.publish(&TimeoffEvent::LeaveSettled(LeaveSettled {
+            company_id,
+            request_id,
+            employee_id,
+            date_from,
+            date_to,
+            settlement,
+        }));
     }
 
     /// Submit a new leave request (Wave 1 P1): creates it `pending`, and — when
@@ -212,11 +253,11 @@ impl TimeoffRequestWriteService {
             return Err(TimeoffError::InsufficientBalance);
         }
         tx.commit().await?;
-        // TODO(events): emit `RequestApproved { timeoff_request_id, employee_id, company_id,
-        // timeoff_type_id, days, is_paid }` via the outbox/compound-event sink once that phase lands
-        // (ADR-005). backbone-hr emits `LeaveApproved` through `HrEventSink::publish` here; the
-        // no-op deferral is safe because the balance draw already committed under the DB CHECK
-        // backstop — a missed event never corrupts the balance.
+        // The grant settles: a zero-day window (empty/inverted span) is a VOID settlement:
+        // the request is granted but carries no absence, so consumers generate no rows for it.
+        let settlement =
+            if days.is_zero() { LeaveSettlement::Voided } else { LeaveSettlement::Approved };
+        self.settle(company_id, timeoff_request_id, employee_id, date_start, date_end, settlement);
         Ok(())
     }
 
@@ -224,11 +265,16 @@ impl TimeoffRequestWriteService {
     pub async fn reject_request(&self, timeoff_request_id: Uuid) -> Result<(), TimeoffError> {
         // RLS scope (ADR-0008), ID-only pattern: no company argument — the write rides the
         // request-dedicated connection, so another company's request is simply not matched.
-        let moved = self.requests.mark_rejected(&self.pool, timeoff_request_id).await?;
-        if moved != 1 {
-            return Err(TimeoffError::InvalidState("timeoff request is not pending"));
-        }
-        // TODO(events): emit `RequestRejected` via the outbox/compound-event sink (ADR-005).
+        let settled = self.requests.mark_rejected(&self.pool, timeoff_request_id).await?;
+        let row = settled.ok_or(TimeoffError::InvalidState("timeoff request is not pending"))?;
+        self.settle(
+            row.company_id,
+            timeoff_request_id,
+            row.employee_id,
+            row.date_start,
+            row.date_end,
+            LeaveSettlement::Refused,
+        );
         Ok(())
     }
 
@@ -246,7 +292,18 @@ impl TimeoffRequestWriteService {
         let status = app.status.as_str();
         if status == "pending" {
             let m = self.requests.cancel_pending(&self.pool, timeoff_request_id).await?;
-            return if m == 1 { Ok(()) } else { Err(TimeoffError::InvalidState("not cancellable")) };
+            if m != 1 {
+                return Err(TimeoffError::InvalidState("not cancellable"));
+            }
+            self.settle(
+                company_id,
+                timeoff_request_id,
+                app.employee_id,
+                app.date_start,
+                app.date_end,
+                LeaveSettlement::Cancelled,
+            );
+            return Ok(());
         }
         if status != "approved" {
             return Err(TimeoffError::InvalidState("only a pending or approved request can be cancelled"));
@@ -277,8 +334,14 @@ impl TimeoffRequestWriteService {
             ));
         }
         tx.commit().await?;
-        // TODO(events): emit `RequestCancelled` (with `was_approved`) via the outbox/compound-event
-        // sink once that phase lands (ADR-005).
+        self.settle(
+            company_id,
+            timeoff_request_id,
+            employee_id,
+            app.date_start,
+            app.date_end,
+            LeaveSettlement::Cancelled,
+        );
         Ok(())
     }
 }
