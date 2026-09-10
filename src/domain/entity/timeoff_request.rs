@@ -50,7 +50,6 @@ impl std::ops::Deref for TimeoffRequestId {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct TimeoffRequest {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
     pub date_start: NaiveDate,
@@ -72,10 +71,9 @@ impl TimeoffRequest {
     }
 
     /// Create a new TimeoffRequest with required fields
-    pub fn new(company_id: Uuid, timeoff_type_id: Uuid, employee_id: Uuid, date_start: NaiveDate, date_end: NaiveDate, status: TimeoffRequestStatus) -> Self {
+    pub fn new(timeoff_type_id: Uuid, employee_id: Uuid, date_start: NaiveDate, date_end: NaiveDate, status: TimeoffRequestStatus) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id,
             timeoff_type_id,
             employee_id,
             date_start,
@@ -181,9 +179,6 @@ impl TimeoffRequest {
     pub fn apply_patch(&mut self, fields: std::collections::HashMap<String, serde_json::Value>) {
         for (key, value) in fields {
             match key.as_str() {
-                "company_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.company_id = v; }
-                }
                 "timeoff_type_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.timeoff_type_id = v; }
                 }
@@ -265,7 +260,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
-        m.insert("company_id".to_string(), "uuid".to_string());
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("approval_employee_id".to_string(), "uuid".to_string());
@@ -276,9 +270,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
     fn search_fields() -> &'static [&'static str] {
         &[]
     }
-    fn company_field() -> Option<&'static str> {
-        Some("company_id")
-    }
 }
 
 /// Builder for TimeoffRequest entity
@@ -287,7 +278,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
 /// System fields (id, metadata, timestamps) are auto-initialized.
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffRequestBuilder {
-    company_id: Option<Uuid>,
     timeoff_type_id: Option<Uuid>,
     employee_id: Option<Uuid>,
     date_start: Option<NaiveDate>,
@@ -300,12 +290,6 @@ pub struct TimeoffRequestBuilder {
 }
 
 impl TimeoffRequestBuilder {
-    /// Set the company_id field (required)
-    pub fn company_id(mut self, value: Uuid) -> Self {
-        self.company_id = Some(value);
-        self
-    }
-
     /// Set the timeoff_type_id field (required)
     pub fn timeoff_type_id(mut self, value: Uuid) -> Self {
         self.timeoff_type_id = Some(value);
@@ -364,7 +348,6 @@ impl TimeoffRequestBuilder {
     ///
     /// Returns Err if any required field without a default is missing.
     pub fn build(self) -> Result<TimeoffRequest, String> {
-        let company_id = self.company_id.ok_or_else(|| "company_id is required".to_string())?;
         let timeoff_type_id = self.timeoff_type_id.ok_or_else(|| "timeoff_type_id is required".to_string())?;
         let employee_id = self.employee_id.ok_or_else(|| "employee_id is required".to_string())?;
         let date_start = self.date_start.ok_or_else(|| "date_start is required".to_string())?;
@@ -372,7 +355,6 @@ impl TimeoffRequestBuilder {
 
         Ok(TimeoffRequest {
             id: Uuid::new_v4(),
-            company_id,
             timeoff_type_id,
             employee_id,
             date_start,

@@ -187,4 +187,3 @@ pub fn create_protected_timeoff_balance_routes<A: AuthMiddleware + Send + Sync +
             }
         }))
 }
-

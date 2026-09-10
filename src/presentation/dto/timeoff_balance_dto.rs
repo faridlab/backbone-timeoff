@@ -34,9 +34,6 @@ use crate::domain::entity::AuditMetadata;
 #[serde(rename_all = "camelCase")]
 pub struct CreateTimeoffBalanceDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "timeoff_type_id")]
     pub timeoff_type_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -74,9 +71,6 @@ pub struct CreateTimeoffBalanceDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTimeoffBalanceDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "timeoff_type_id")]
     pub timeoff_type_id: Uuid,
@@ -116,9 +110,6 @@ pub struct UpdateTimeoffBalanceDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchTimeoffBalanceDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "timeoff_type_id")]
     pub timeoff_type_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -149,7 +140,7 @@ pub struct PatchTimeoffBalanceDto {
 impl PatchTimeoffBalanceDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some() || self.allocated.is_some() || self.used.is_some() || self.accrual_plan_id.is_some() || self.date_from.is_some() || self.date_to.is_some() || self.last_accrual_at.is_some() || self.carried_over.is_some() || self.expired_at.is_some()
+        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some() || self.allocated.is_some() || self.used.is_some() || self.accrual_plan_id.is_some() || self.date_from.is_some() || self.date_to.is_some() || self.last_accrual_at.is_some() || self.carried_over.is_some() || self.expired_at.is_some()
     }
 }
 
@@ -167,8 +158,6 @@ impl PatchTimeoffBalanceDto {
 pub struct TimeoffBalanceResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub timeoff_type_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -240,9 +229,9 @@ impl TimeoffBalanceListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct TimeoffBalanceSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
+    pub period: String,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -254,7 +243,6 @@ impl From<TimeoffBalance> for TimeoffBalanceResponseDto {
     fn from(entity: TimeoffBalance) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             timeoff_type_id: entity.timeoff_type_id,
             employee_id: entity.employee_id,
             period: entity.period,
@@ -276,9 +264,9 @@ impl From<TimeoffBalance> for TimeoffBalanceSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             timeoff_type_id: entity.timeoff_type_id,
             employee_id: entity.employee_id,
+            period: entity.period,
             created_at,
         }
     }
@@ -288,7 +276,6 @@ impl From<CreateTimeoffBalanceDto> for TimeoffBalance {
     fn from(dto: CreateTimeoffBalanceDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             timeoff_type_id: dto.timeoff_type_id,
             employee_id: dto.employee_id,
             period: dto.period,
@@ -309,7 +296,6 @@ impl From<&TimeoffBalance> for TimeoffBalanceResponseDto {
     fn from(entity: &TimeoffBalance) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             timeoff_type_id: entity.timeoff_type_id.clone(),
             employee_id: entity.employee_id.clone(),
             period: entity.period.clone(),
@@ -334,7 +320,6 @@ impl backbone_core::FromCreateDto<CreateTimeoffBalanceDto> for TimeoffBalance {
 
 impl backbone_core::ApplyUpdateDto<UpdateTimeoffBalanceDto> for TimeoffBalance {
     fn apply_update(mut self, dto: UpdateTimeoffBalanceDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.timeoff_type_id = dto.timeoff_type_id;
         self.employee_id = dto.employee_id;
         self.period = dto.period;
@@ -358,4 +343,3 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffBalanceDto> for TimeoffBalance {
 // Add custom DTOs specific to TimeoffBalance here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

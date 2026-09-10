@@ -48,7 +48,6 @@ impl std::ops::Deref for TimeoffTypeId {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct TimeoffType {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub name: String,
     pub code: Option<String>,
     pub is_paid: bool,
@@ -65,10 +64,9 @@ impl TimeoffType {
     }
 
     /// Create a new TimeoffType with required fields
-    pub fn new(company_id: Uuid, name: String, is_paid: bool, allow_carry_forward: bool) -> Self {
+    pub fn new(name: String, is_paid: bool, allow_carry_forward: bool) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id,
             name,
             code: None,
             is_paid,
@@ -146,9 +144,6 @@ impl TimeoffType {
     pub fn apply_patch(&mut self, fields: std::collections::HashMap<String, serde_json::Value>) {
         for (key, value) in fields {
             match key.as_str() {
-                "company_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.company_id = v; }
-                }
                 "name" => {
                     if let Ok(v) = serde_json::from_value(value) { self.name = v; }
                 }
@@ -215,14 +210,10 @@ impl backbone_orm::EntityRepoMeta for TimeoffType {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
-        m.insert("company_id".to_string(), "uuid".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
         &["name"]
-    }
-    fn company_field() -> Option<&'static str> {
-        Some("company_id")
     }
 }
 
@@ -232,7 +223,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffType {
 /// System fields (id, metadata, timestamps) are auto-initialized.
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffTypeBuilder {
-    company_id: Option<Uuid>,
     name: Option<String>,
     code: Option<String>,
     is_paid: Option<bool>,
@@ -240,12 +230,6 @@ pub struct TimeoffTypeBuilder {
 }
 
 impl TimeoffTypeBuilder {
-    /// Set the company_id field (required)
-    pub fn company_id(mut self, value: Uuid) -> Self {
-        self.company_id = Some(value);
-        self
-    }
-
     /// Set the name field (required)
     pub fn name(mut self, value: String) -> Self {
         self.name = Some(value);
@@ -274,12 +258,10 @@ impl TimeoffTypeBuilder {
     ///
     /// Returns Err if any required field without a default is missing.
     pub fn build(self) -> Result<TimeoffType, String> {
-        let company_id = self.company_id.ok_or_else(|| "company_id is required".to_string())?;
         let name = self.name.ok_or_else(|| "name is required".to_string())?;
 
         Ok(TimeoffType {
             id: Uuid::new_v4(),
-            company_id,
             name,
             code: self.code,
             is_paid: self.is_paid.unwrap_or(true),

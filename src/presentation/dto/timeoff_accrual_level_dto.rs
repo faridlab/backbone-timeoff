@@ -37,9 +37,6 @@ use crate::domain::entity::AccrualStartType;
 #[serde(rename_all = "camelCase")]
 pub struct CreateTimeoffAccrualLevelDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "plan_id")]
     pub plan_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = 42))]
@@ -75,9 +72,6 @@ pub struct CreateTimeoffAccrualLevelDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTimeoffAccrualLevelDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "plan_id")]
     pub plan_id: Uuid,
@@ -115,9 +109,6 @@ pub struct UpdateTimeoffAccrualLevelDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchTimeoffAccrualLevelDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "plan_id")]
     pub plan_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = 42))]
@@ -145,7 +136,7 @@ pub struct PatchTimeoffAccrualLevelDto {
 impl PatchTimeoffAccrualLevelDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.plan_id.is_some() || self.sequence.is_some() || self.start_count.is_some() || self.start_type.is_some() || self.frequency.is_some() || self.added_value.is_some() || self.is_added_based_on_worked_time.is_some() || self.maximum_leave.is_some() || self.action_with_lost_days.is_some() || self.postponed_max_days.is_some()
+        self.plan_id.is_some() || self.sequence.is_some() || self.start_count.is_some() || self.start_type.is_some() || self.frequency.is_some() || self.added_value.is_some() || self.is_added_based_on_worked_time.is_some() || self.maximum_leave.is_some() || self.action_with_lost_days.is_some() || self.postponed_max_days.is_some()
     }
 }
 
@@ -163,8 +154,6 @@ impl PatchTimeoffAccrualLevelDto {
 pub struct TimeoffAccrualLevelResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub plan_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = 42))]
@@ -235,9 +224,9 @@ impl TimeoffAccrualLevelListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct TimeoffAccrualLevelSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub plan_id: Uuid,
     pub sequence: i32,
+    pub start_count: Decimal,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -249,7 +238,6 @@ impl From<TimeoffAccrualLevel> for TimeoffAccrualLevelResponseDto {
     fn from(entity: TimeoffAccrualLevel) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             plan_id: entity.plan_id,
             sequence: entity.sequence,
             start_count: entity.start_count,
@@ -270,9 +258,9 @@ impl From<TimeoffAccrualLevel> for TimeoffAccrualLevelSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             plan_id: entity.plan_id,
             sequence: entity.sequence,
+            start_count: entity.start_count,
             created_at,
         }
     }
@@ -282,7 +270,6 @@ impl From<CreateTimeoffAccrualLevelDto> for TimeoffAccrualLevel {
     fn from(dto: CreateTimeoffAccrualLevelDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             plan_id: dto.plan_id,
             sequence: dto.sequence,
             start_count: dto.start_count,
@@ -302,7 +289,6 @@ impl From<&TimeoffAccrualLevel> for TimeoffAccrualLevelResponseDto {
     fn from(entity: &TimeoffAccrualLevel) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             plan_id: entity.plan_id.clone(),
             sequence: entity.sequence.clone(),
             start_count: entity.start_count.clone(),
@@ -326,7 +312,6 @@ impl backbone_core::FromCreateDto<CreateTimeoffAccrualLevelDto> for TimeoffAccru
 
 impl backbone_core::ApplyUpdateDto<UpdateTimeoffAccrualLevelDto> for TimeoffAccrualLevel {
     fn apply_update(mut self, dto: UpdateTimeoffAccrualLevelDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.plan_id = dto.plan_id;
         self.sequence = dto.sequence;
         self.start_count = dto.start_count;
@@ -349,4 +334,3 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffAccrualLevelDto> for TimeoffAccr
 // Add custom DTOs specific to TimeoffAccrualLevel here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

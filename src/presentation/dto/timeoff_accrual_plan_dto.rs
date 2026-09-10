@@ -33,9 +33,6 @@ use crate::domain::entity::AuditMetadata;
 #[serde(rename_all = "camelCase")]
 pub struct CreateTimeoffAccrualPlanDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "timeoff_type_id")]
     pub timeoff_type_id: Uuid,
     #[cfg_attr(feature = "validation", validate(length(max = 120)))]
@@ -56,9 +53,6 @@ pub struct CreateTimeoffAccrualPlanDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTimeoffAccrualPlanDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "timeoff_type_id")]
     pub timeoff_type_id: Uuid,
@@ -81,9 +75,6 @@ pub struct UpdateTimeoffAccrualPlanDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchTimeoffAccrualPlanDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "timeoff_type_id")]
     pub timeoff_type_id: Option<Uuid>,
     #[cfg_attr(feature = "validation", validate(length(max = 120)))]
@@ -95,7 +86,7 @@ pub struct PatchTimeoffAccrualPlanDto {
 impl PatchTimeoffAccrualPlanDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.name.is_some()
+        self.timeoff_type_id.is_some() || self.name.is_some()
     }
 }
 
@@ -113,8 +104,6 @@ impl PatchTimeoffAccrualPlanDto {
 pub struct TimeoffAccrualPlanResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub timeoff_type_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
@@ -176,7 +165,6 @@ impl TimeoffAccrualPlanListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct TimeoffAccrualPlanSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub name: String,
     pub created_at: Option<DateTime<Utc>>,
@@ -190,7 +178,6 @@ impl From<TimeoffAccrualPlan> for TimeoffAccrualPlanResponseDto {
     fn from(entity: TimeoffAccrualPlan) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             timeoff_type_id: entity.timeoff_type_id,
             name: entity.name,
             metadata: entity.metadata,
@@ -203,7 +190,6 @@ impl From<TimeoffAccrualPlan> for TimeoffAccrualPlanSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             timeoff_type_id: entity.timeoff_type_id,
             name: entity.name,
             created_at,
@@ -215,7 +201,6 @@ impl From<CreateTimeoffAccrualPlanDto> for TimeoffAccrualPlan {
     fn from(dto: CreateTimeoffAccrualPlanDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             timeoff_type_id: dto.timeoff_type_id,
             name: dto.name,
             metadata: AuditMetadata::default(),
@@ -227,7 +212,6 @@ impl From<&TimeoffAccrualPlan> for TimeoffAccrualPlanResponseDto {
     fn from(entity: &TimeoffAccrualPlan) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             timeoff_type_id: entity.timeoff_type_id.clone(),
             name: entity.name.clone(),
             metadata: entity.metadata.clone(),
@@ -243,7 +227,6 @@ impl backbone_core::FromCreateDto<CreateTimeoffAccrualPlanDto> for TimeoffAccrua
 
 impl backbone_core::ApplyUpdateDto<UpdateTimeoffAccrualPlanDto> for TimeoffAccrualPlan {
     fn apply_update(mut self, dto: UpdateTimeoffAccrualPlanDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.timeoff_type_id = dto.timeoff_type_id;
         self.name = dto.name;
         Ok(self)
@@ -258,4 +241,3 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffAccrualPlanDto> for TimeoffAccru
 // Add custom DTOs specific to TimeoffAccrualPlan here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

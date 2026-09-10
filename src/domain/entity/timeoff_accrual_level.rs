@@ -53,7 +53,6 @@ impl std::ops::Deref for TimeoffAccrualLevelId {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct TimeoffAccrualLevel {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub plan_id: Uuid,
     pub sequence: i32,
     pub start_count: Decimal,
@@ -76,10 +75,9 @@ impl TimeoffAccrualLevel {
     }
 
     /// Create a new TimeoffAccrualLevel with required fields
-    pub fn new(company_id: Uuid, plan_id: Uuid, sequence: i32, start_count: Decimal, start_type: AccrualStartType, frequency: AccrualFrequency, added_value: Decimal, is_added_based_on_worked_time: bool, action_with_lost_days: AccrualLostDaysAction) -> Self {
+    pub fn new(plan_id: Uuid, sequence: i32, start_count: Decimal, start_type: AccrualStartType, frequency: AccrualFrequency, added_value: Decimal, is_added_based_on_worked_time: bool, action_with_lost_days: AccrualLostDaysAction) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id,
             plan_id,
             sequence,
             start_count,
@@ -169,9 +167,6 @@ impl TimeoffAccrualLevel {
     pub fn apply_patch(&mut self, fields: std::collections::HashMap<String, serde_json::Value>) {
         for (key, value) in fields {
             match key.as_str() {
-                "company_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.company_id = v; }
-                }
                 "plan_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.plan_id = v; }
                 }
@@ -256,7 +251,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffAccrualLevel {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
-        m.insert("company_id".to_string(), "uuid".to_string());
         m.insert("plan_id".to_string(), "uuid".to_string());
         m.insert("start_type".to_string(), "accrual_start_type".to_string());
         m.insert("frequency".to_string(), "accrual_frequency".to_string());
@@ -266,9 +260,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffAccrualLevel {
     fn search_fields() -> &'static [&'static str] {
         &[]
     }
-    fn company_field() -> Option<&'static str> {
-        Some("company_id")
-    }
 }
 
 /// Builder for TimeoffAccrualLevel entity
@@ -277,7 +268,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffAccrualLevel {
 /// System fields (id, metadata, timestamps) are auto-initialized.
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffAccrualLevelBuilder {
-    company_id: Option<Uuid>,
     plan_id: Option<Uuid>,
     sequence: Option<i32>,
     start_count: Option<Decimal>,
@@ -291,12 +281,6 @@ pub struct TimeoffAccrualLevelBuilder {
 }
 
 impl TimeoffAccrualLevelBuilder {
-    /// Set the company_id field (required)
-    pub fn company_id(mut self, value: Uuid) -> Self {
-        self.company_id = Some(value);
-        self
-    }
-
     /// Set the plan_id field (required)
     pub fn plan_id(mut self, value: Uuid) -> Self {
         self.plan_id = Some(value);
@@ -361,14 +345,12 @@ impl TimeoffAccrualLevelBuilder {
     ///
     /// Returns Err if any required field without a default is missing.
     pub fn build(self) -> Result<TimeoffAccrualLevel, String> {
-        let company_id = self.company_id.ok_or_else(|| "company_id is required".to_string())?;
         let plan_id = self.plan_id.ok_or_else(|| "plan_id is required".to_string())?;
         let sequence = self.sequence.ok_or_else(|| "sequence is required".to_string())?;
         let added_value = self.added_value.ok_or_else(|| "added_value is required".to_string())?;
 
         Ok(TimeoffAccrualLevel {
             id: Uuid::new_v4(),
-            company_id,
             plan_id,
             sequence,
             start_count: self.start_count.unwrap_or(Decimal::from(0)),

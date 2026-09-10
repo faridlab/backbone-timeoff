@@ -21,6 +21,11 @@
 # =============================================================================
 
 models:
+  # Tenancy: none, by design (ADR-0029). Tenant-agnostic and reusable; a composing
+  # service's tenancy decorator owns org scoping for this table, including the
+  # per-unit unique on (employee_id, timeoff_type_id, period) that keeps one
+  # balance per employee/type/period — the uniqueness the draw/restore UPDATEs
+  # rely on to move exactly one row.
   - name: TimeoffBalance
     collection: timeoff_balances
     description: "An employee's per-period entitlement for one timeoff type (allocated / used)"
@@ -29,10 +34,6 @@ models:
         type: uuid
         attributes: ["@id", "@default(uuid)"]
         description: "Unique balance id"
-      company_id:
-        type: uuid
-        attributes: ["@required", "@exclude_from_foreign_key_check"]
-        description: "Org owner # logical FK to organization.Company.id"
       timeoff_type_id:
         type: uuid
         attributes: ["@required", "@foreign_key(TimeoffType.id)"]
@@ -77,7 +78,3 @@ models:
         type: Metadata
         attributes: ["@audit_metadata"]
         description: "Audit metadata"
-    indexes:
-      - type: unique
-        fields: [company_id, employee_id, timeoff_type_id, period]
-        where: "deleted_at IS NULL"

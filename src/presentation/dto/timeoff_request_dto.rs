@@ -34,9 +34,6 @@ use crate::domain::entity::TimeoffRequestStatus;
 #[serde(rename_all = "camelCase")]
 pub struct CreateTimeoffRequestDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "timeoff_type_id")]
     pub timeoff_type_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -74,9 +71,6 @@ pub struct CreateTimeoffRequestDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTimeoffRequestDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(alias = "timeoff_type_id")]
     pub timeoff_type_id: Uuid,
@@ -116,9 +110,6 @@ pub struct UpdateTimeoffRequestDto {
 #[serde(rename_all = "camelCase")]
 pub struct PatchTimeoffRequestDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "timeoff_type_id")]
     pub timeoff_type_id: Option<Uuid>,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -147,7 +138,7 @@ pub struct PatchTimeoffRequestDto {
 impl PatchTimeoffRequestDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.date_start.is_some() || self.date_end.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
+        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.date_start.is_some() || self.date_end.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
     }
 }
 
@@ -165,8 +156,6 @@ impl PatchTimeoffRequestDto {
 pub struct TimeoffRequestResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub timeoff_type_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
@@ -237,9 +226,9 @@ impl TimeoffRequestListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct TimeoffRequestSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
+    pub date_start: NaiveDate,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -251,7 +240,6 @@ impl From<TimeoffRequest> for TimeoffRequestResponseDto {
     fn from(entity: TimeoffRequest) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             timeoff_type_id: entity.timeoff_type_id,
             employee_id: entity.employee_id,
             date_start: entity.date_start,
@@ -271,9 +259,9 @@ impl From<TimeoffRequest> for TimeoffRequestSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             timeoff_type_id: entity.timeoff_type_id,
             employee_id: entity.employee_id,
+            date_start: entity.date_start,
             created_at,
         }
     }
@@ -283,7 +271,6 @@ impl From<CreateTimeoffRequestDto> for TimeoffRequest {
     fn from(dto: CreateTimeoffRequestDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             timeoff_type_id: dto.timeoff_type_id,
             employee_id: dto.employee_id,
             date_start: dto.date_start,
@@ -302,7 +289,6 @@ impl From<&TimeoffRequest> for TimeoffRequestResponseDto {
     fn from(entity: &TimeoffRequest) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             timeoff_type_id: entity.timeoff_type_id.clone(),
             employee_id: entity.employee_id.clone(),
             date_start: entity.date_start.clone(),
@@ -325,7 +311,6 @@ impl backbone_core::FromCreateDto<CreateTimeoffRequestDto> for TimeoffRequest {
 
 impl backbone_core::ApplyUpdateDto<UpdateTimeoffRequestDto> for TimeoffRequest {
     fn apply_update(mut self, dto: UpdateTimeoffRequestDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.timeoff_type_id = dto.timeoff_type_id;
         self.employee_id = dto.employee_id;
         self.date_start = dto.date_start;
@@ -347,4 +332,3 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffRequestDto> for TimeoffRequest {
 // Add custom DTOs specific to TimeoffRequest here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

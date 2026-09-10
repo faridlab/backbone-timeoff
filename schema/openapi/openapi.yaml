@@ -1859,15 +1859,11 @@ components:
       type: object
       required:
         - id
-        - company_id
         - timeoff_type_id
         - name
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         timeoff_type_id:
@@ -1895,14 +1891,10 @@ components:
     CreateTimeoffAccrualPlanRequest:
       type: object
       required:
-        - company_id
         - timeoff_type_id
         - name
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -1915,14 +1907,10 @@ components:
     UpdateTimeoffAccrualPlanRequest:
       type: object
       required:
-        - company_id
         - timeoff_type_id
         - name
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -1935,9 +1923,6 @@ components:
     PatchTimeoffAccrualPlanRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -1961,7 +1946,6 @@ components:
       type: object
       required:
         - id
-        - company_id
         - plan_id
         - sequence
         - start_count
@@ -1973,9 +1957,6 @@ components:
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         plan_id:
@@ -2021,7 +2002,6 @@ components:
     CreateTimeoffAccrualLevelRequest:
       type: object
       required:
-        - company_id
         - plan_id
         - sequence
         - start_count
@@ -2032,9 +2012,6 @@ components:
         - action_with_lost_days
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         plan_id:
           type: string
           format: uuid
@@ -2065,7 +2042,6 @@ components:
     UpdateTimeoffAccrualLevelRequest:
       type: object
       required:
-        - company_id
         - plan_id
         - sequence
         - start_count
@@ -2076,9 +2052,6 @@ components:
         - action_with_lost_days
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         plan_id:
           type: string
           format: uuid
@@ -2109,9 +2082,6 @@ components:
     PatchTimeoffAccrualLevelRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         plan_id:
           type: string
           format: uuid
@@ -2153,7 +2123,6 @@ components:
       type: object
       required:
         - id
-        - company_id
         - timeoff_type_id
         - employee_id
         - period
@@ -2163,9 +2132,6 @@ components:
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         timeoff_type_id:
@@ -2222,7 +2188,6 @@ components:
     CreateTimeoffBalanceRequest:
       type: object
       required:
-        - company_id
         - timeoff_type_id
         - employee_id
         - period
@@ -2231,9 +2196,6 @@ components:
         - carried_over
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -2275,7 +2237,6 @@ components:
     UpdateTimeoffBalanceRequest:
       type: object
       required:
-        - company_id
         - timeoff_type_id
         - employee_id
         - period
@@ -2284,9 +2245,6 @@ components:
         - carried_over
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -2328,9 +2286,6 @@ components:
     PatchTimeoffBalanceRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -2383,7 +2338,6 @@ components:
       type: object
       required:
         - id
-        - company_id
         - timeoff_type_id
         - employee_id
         - date_start
@@ -2392,9 +2346,6 @@ components:
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         timeoff_type_id:
@@ -2446,7 +2397,6 @@ components:
     CreateTimeoffRequestRequest:
       type: object
       required:
-        - company_id
         - timeoff_type_id
         - employee_id
         - date_start
@@ -2454,9 +2404,6 @@ components:
         - status
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -2493,7 +2440,6 @@ components:
     UpdateTimeoffRequestRequest:
       type: object
       required:
-        - company_id
         - timeoff_type_id
         - employee_id
         - date_start
@@ -2501,9 +2447,6 @@ components:
         - status
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -2540,9 +2483,6 @@ components:
     PatchTimeoffRequestRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         timeoff_type_id:
           type: string
           format: uuid
@@ -2590,16 +2530,12 @@ components:
       type: object
       required:
         - id
-        - company_id
         - name
         - is_paid
         - allow_carry_forward
         - metadata
       properties:
         id:
-          type: string
-          format: uuid
-        company_id:
           type: string
           format: uuid
         name:
@@ -2632,15 +2568,11 @@ components:
     CreateTimeoffTypeRequest:
       type: object
       required:
-        - company_id
         - name
         - is_paid
         - allow_carry_forward
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         name:
           type: string
           maxLength: 120
@@ -2658,15 +2590,11 @@ components:
     UpdateTimeoffTypeRequest:
       type: object
       required:
-        - company_id
         - name
         - is_paid
         - allow_carry_forward
         - metadata
       properties:
-        company_id:
-          type: string
-          format: uuid
         name:
           type: string
           maxLength: 120
@@ -2684,9 +2612,6 @@ components:
     PatchTimeoffTypeRequest:
       type: object
       properties:
-        company_id:
-          type: string
-          format: uuid
         name:
           type: string
           maxLength: 120

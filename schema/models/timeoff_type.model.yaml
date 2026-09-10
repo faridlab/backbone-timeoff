@@ -1,12 +1,15 @@
 # =============================================================================
 # Domain: Timeoff
 # Entity: TimeoffType
-# Description: A leave policy/type (annual, sick, maternity, ...). Company-scoped.
+# Description: A leave policy/type (annual, sick, maternity, ...). Tenant-agnostic.
 # An employee's per-period TimeoffBalance is allocated against a timeoff type; an
 # approved TimeoffRequest draws it down. Posts NO GL.
 # =============================================================================
 
 models:
+  # Tenancy: none, by design (ADR-0029). Tenant-agnostic and reusable; a composing
+  # service's tenancy decorator owns org scoping for this table, including the
+  # per-unit unique on (code) that keeps one leave vocabulary per unit.
   - name: TimeoffType
     collection: timeoff_types
     description: "Leave policy/type (annual, sick, maternity, ...)"
@@ -15,10 +18,6 @@ models:
         type: uuid
         attributes: ["@id", "@default(uuid)"]
         description: "Unique timeoff type id"
-      company_id:
-        type: uuid
-        attributes: ["@required", "@exclude_from_foreign_key_check"]
-        description: "Org owner # logical FK to organization.Company.id"
       name:
         type: string
         attributes: ["@required", "@max(120)"]
@@ -39,7 +38,3 @@ models:
         type: Metadata
         attributes: ["@audit_metadata"]
         description: "Audit metadata"
-    indexes:
-      - type: unique
-        fields: [company_id, code]
-        where: "deleted_at IS NULL"

@@ -44,7 +44,6 @@ pub struct TimeoffBalancePaginatedResult {
 /// Filter parameters for list queries
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffBalanceFilter {
-    pub company_id: Option<Uuid>,
     pub timeoff_type_id: Option<Uuid>,
     pub employee_id: Option<Uuid>,
     pub period: Option<String>,
@@ -54,7 +53,7 @@ pub struct TimeoffBalanceFilter {
 impl TimeoffBalanceFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some() || self.accrual_plan_id.is_some()
+        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.period.is_some() || self.accrual_plan_id.is_some()
     }
 }
 

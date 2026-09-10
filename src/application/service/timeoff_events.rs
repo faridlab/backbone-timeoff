@@ -27,8 +27,15 @@ pub enum LeaveSettlement {
 
 /// A leave request settled into a final outcome. The window travels as-is; per-day expansion
 /// (hours per working day, holiday carving) is the HOST adapter's job, not the event's.
+///
+/// `company_id` is the legacy tenancy twin (ADR-0029): timeoff itself is tenant-agnostic, but the
+/// leave consumers (the timesheet row regeneration, payroll settlement) still key on one. The write
+/// service sources it from the ambient org scope's legacy company id and fails closed when no scope
+/// is bound — it never guesses.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LeaveSettled {
+    /// Legacy company twin for the leave consumers; sourced from the ambient org scope,
+    /// fail-closed (ADR-0029).
     pub company_id: Uuid,
     pub request_id: Uuid,
     pub employee_id: Uuid,

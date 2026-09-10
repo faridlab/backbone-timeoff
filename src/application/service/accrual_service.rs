@@ -29,7 +29,7 @@
 //! integration — until then such levels grant the full `added_value` (Odoo
 //! grants full when `hr_attendance` is not installed; same behavior).
 
-use backbone_orm::company_scope;
+use backbone_orm::org_scope;
 use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -98,9 +98,14 @@ impl AccrualService {
             total.claimed += rows.len();
             for row in &rows {
                 let mut tx = self.pool.begin().await?;
-                // The walk is a background job crossing all companies: bind the
-                // row's own company so the apply rides the ADR-0014 fence.
-                company_scope::bind_company_on(&mut tx, row.company_id).await?;
+                // Tenancy posture (ADR-0029): the module owns no scoping column — the composing
+                // service's tenancy decorator does. Relay the AMBIENT request scope onto this
+                // transaction when the caller bound one, so the decorator's org-unit fill (and
+                // any policy it installed) sees this transaction's updates. An undecorated
+                // deployment has no ambient scope and runs the apply plain.
+                if let Some(scope) = org_scope::current_org_scope() {
+                    org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+                }
                 let one = match self.process_row(&mut tx, row, now).await {
                     Ok(o) => o,
                     Err(e) => {

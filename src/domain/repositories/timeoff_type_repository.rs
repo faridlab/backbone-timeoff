@@ -7,7 +7,6 @@
 
 use async_trait::async_trait;
 use anyhow::Result;
-use uuid::Uuid;
 
 use crate::domain::entity::TimeoffType;
 
@@ -44,7 +43,6 @@ pub struct TimeoffTypePaginatedResult {
 /// Filter parameters for list queries
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffTypeFilter {
-    pub company_id: Option<Uuid>,
     pub name: Option<String>,
     pub code: Option<String>,
     pub is_paid: Option<bool>,
@@ -54,7 +52,7 @@ pub struct TimeoffTypeFilter {
 impl TimeoffTypeFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.name.is_some() || self.code.is_some() || self.is_paid.is_some() || self.allow_carry_forward.is_some()
+        self.name.is_some() || self.code.is_some() || self.is_paid.is_some() || self.allow_carry_forward.is_some()
     }
 }
 

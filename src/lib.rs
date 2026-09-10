@@ -67,7 +67,7 @@ pub struct TimeoffModule {
     // Held so the `TimeoffQueryService` impl can delegate `paid_leave_days` to the repo's
     // hand-written SQL, and standard lookups to the CRUD services above. `db_pool` is the same pool
     // the repo was constructed with (the repo's `paid_leave_days` takes it per the backbone-attendance
-    // read-port convention — RLS scoping is applied inside via `company_scope::fetch_all_scoped`).
+    // read-port convention — the ambient org scope the composing service bound fences it).
     pub(crate) timeoff_request_repository: Arc<TimeoffRequestRepository>,
     // The balance repo + write service are wired here so the leave-drawdown invariant is live on the
     // module, but no in-crate handler drives them yet (the approve/reject/cancel HTTP surface and a

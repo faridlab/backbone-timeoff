@@ -20,7 +20,7 @@ use rust_decimal::Decimal;
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-use backbone_orm::company_scope;
+use backbone_orm::org_scope;
 
 use crate::domain::entity::TimeoffRequest;
 
@@ -48,10 +48,9 @@ impl TimeoffRequestRepository {
 }
 
 /// What the approval path reads before it draws: the request joined to its type, carrying the
-/// company that binds the transaction and the `is_paid` polarity the (future) event announces.
-/// Mirrors backbone-hr's `LeaveApprovalRow`; `days` is computed here, not read off a stored column.
+/// `is_paid` polarity the (future) event announces. Mirrors backbone-hr's `LeaveApprovalRow`;
+/// `days` is computed here, not read off a stored column.
 pub struct TimeoffApprovalRow {
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub days: Decimal,
@@ -68,7 +67,6 @@ pub struct TimeoffApprovalRow {
 /// What the cancellation path reads before it restores. Mirrors backbone-hr's `LeaveCancelRow`;
 /// carries both window ends so the settled event can echo the full span.
 pub struct TimeoffCancelRow {
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub days: Decimal,
@@ -79,7 +77,6 @@ pub struct TimeoffCancelRow {
 
 /// What the reject path's RETURNING hands back: the settle-relevant fields for the domain event.
 pub struct TimeoffRejectedRow {
-    pub company_id: Uuid,
     pub employee_id: Uuid,
     pub date_start: NaiveDate,
     pub date_end: NaiveDate,
@@ -91,7 +88,6 @@ pub struct TimeoffRejectedRow {
 /// `TimeoffRequestWriteService::submit_request`).
 pub struct TimeoffRequestDraft {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
     pub date_start: NaiveDate,
@@ -112,9 +108,11 @@ impl TimeoffRequestRepository {
     /// days in SQL via `generate_series` (single round trip; no Rust-side date iteration). `DISTINCT`
     /// collapses overlaps so a day covered by two paid requests is counted once.
     ///
-    /// Read-only, company-scoped: takes the pool and runs `fetch_all_scoped` so the RLS fence
-    /// (ADR-0008) applies. The caller wraps this in `with_company_scope(Some(company_id))` (or the
-    /// HTTP composition root's `with_request_scope`) — otherwise it fails closed (0 rows).
+    /// Read-only. Tenancy (ADR-0029): when the request carries an ambient org scope it is
+    /// relayed onto a short read transaction (`bind_org_scope_on`), so the composing
+    /// decorator's row-level fence applies; unfenced deployments read the pool plain.
+    /// (backbone_orm's org scope offers no fetch-all helper, so the scoped path is a short
+    /// read-only transaction here.)
     ///
     /// Soft-delete lives in the request's `metadata` JSONB column (`deleted_at` key); the
     /// `(metadata->>'deleted_at') IS NULL` predicate mirrors every other non-deleted read. The joined
@@ -123,49 +121,51 @@ impl TimeoffRequestRepository {
     pub async fn paid_leave_days(
         &self,
         pool: &PgPool,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<Vec<NaiveDate>, sqlx::Error> {
         // No `fetch_all_scalar_scoped` exists in backbone_orm, so decode the single DATE column as a
-        // 1-tuple row via `fetch_all_scoped` and unwrap the tuple — the documented shape for a
-        // single-column typed read (mirrors `AttendanceRepository::present_days`).
-        let rows: Vec<(NaiveDate,)> = company_scope::fetch_all_scoped(
-            pool,
-            sqlx::query_as(
-                r#"SELECT DISTINCT d.day::date AS day
-                   FROM timeoff.timeoff_requests tr
-                   JOIN timeoff.timeoff_types tt ON tt.id = tr.timeoff_type_id
-                   CROSS JOIN LATERAL generate_series(
-                       GREATEST(tr.date_start, $3)::timestamp,
-                       LEAST(tr.date_end, $4)::timestamp,
-                       '1 day'::interval
-                   ) AS d(day)
-                   WHERE tr.company_id = $1
-                     AND tr.employee_id = $2
-                     AND tr.status = 'approved'::timeoff_request_status
-                     AND tt.is_paid = true
-                     AND tr.date_start <= $4
-                     AND tr.date_end >= $3
-                     AND (tr.metadata->>'deleted_at') IS NULL
-                   ORDER BY day"#,
-            )
-            .bind(company_id)
-            .bind(employee_id)
-            .bind(from)
-            .bind(to),
+        // 1-tuple row and unwrap the tuple — the documented shape for a single-column typed read
+        // (mirrors `AttendanceRepository::present_days`).
+        let query = sqlx::query_as(
+            r#"SELECT DISTINCT d.day::date AS day
+               FROM timeoff.timeoff_requests tr
+               JOIN timeoff.timeoff_types tt ON tt.id = tr.timeoff_type_id
+               CROSS JOIN LATERAL generate_series(
+                   GREATEST(tr.date_start, $2)::timestamp,
+                   LEAST(tr.date_end, $3)::timestamp,
+                   '1 day'::interval
+               ) AS d(day)
+               WHERE tr.employee_id = $1
+                 AND tr.status = 'approved'::timeoff_request_status
+                 AND tt.is_paid = true
+                 AND tr.date_start <= $3
+                 AND tr.date_end >= $2
+                 AND (tr.metadata->>'deleted_at') IS NULL
+               ORDER BY day"#,
         )
-        .await?;
+        .bind(employee_id)
+        .bind(from)
+        .bind(to);
+
+        let rows: Vec<(NaiveDate,)> = if let Some(scope) = org_scope::current_org_scope() {
+            let mut tx = pool.begin().await?;
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+            let rows = query.fetch_all(&mut *tx).await?;
+            tx.commit().await?; // read-only: nothing but the relayed scope to close out
+            rows
+        } else {
+            query.fetch_all(pool).await?
+        };
         Ok(rows.into_iter().map(|(d,)| d).collect())
     }
 
     /// Read a request + its type for approval. `Ok(None)` = no such live request in scope.
     ///
-    /// ID-only: no company argument. `fetch_optional_row_scoped` means it rides a connection carrying
-    /// the caller's `app.company_id`, so another company's request simply is not found. The company
-    /// comes back on the row precisely so the caller can bind the approval transaction to it explicitly
-    /// — which is what fences the transition + draw even for non-request callers.
+    /// ID-only: no tenant argument. `fetch_optional_row_scoped` rides the request-dedicated
+    /// connection when the composing service bound one, so a row its tenancy decorator's fence
+    /// excludes simply is not found.
     ///
     /// `days` is computed in SQL as the inclusive span `(date_end - date_start + 1)` because
     /// `timeoff_requests` has no stored `days` column (unlike backbone-hr's `leave_applications`).
@@ -176,10 +176,10 @@ impl TimeoffRequestRepository {
         pool: &PgPool,
         timeoff_request_id: Uuid,
     ) -> Result<Option<TimeoffApprovalRow>, sqlx::Error> {
-        let row = company_scope::fetch_optional_row_scoped(
+        let row = org_scope::fetch_optional_row_scoped(
             pool,
             sqlx::query(
-                r#"SELECT tr.company_id, tr.employee_id, tr.timeoff_type_id,
+                r#"SELECT tr.employee_id, tr.timeoff_type_id,
                           (tr.date_end - tr.date_start + 1)::numeric AS days,
                           tr.date_start, tr.date_end, tr.status::text AS status, tt.is_paid,
                           tr.approval_request_id
@@ -191,7 +191,7 @@ impl TimeoffRequestRepository {
         )
         .await?;
         Ok(row.map(|r| TimeoffApprovalRow {
-            company_id: r.get("company_id"), employee_id: r.get("employee_id"),
+            employee_id: r.get("employee_id"),
             timeoff_type_id: r.get("timeoff_type_id"), days: r.get("days"),
             date_start: r.get("date_start"), date_end: r.get("date_end"),
             status: r.get("status"), is_paid: r.get("is_paid"),
@@ -203,7 +203,8 @@ impl TimeoffRequestRepository {
     /// already moved it and the caller must roll back.
     ///
     /// Takes the CALLER'S connection so this and the balance draw commit as ONE unit — the module's
-    /// load-bearing invariant. The caller has already bound the company on it — don't re-bind here.
+    /// load-bearing invariant. The caller has already relayed the ambient org scope onto it (when one
+    /// is mounted) — don't re-bind here.
     /// Sets `approval_employee_id` (the timeoff schema has no `approved_at`; the audit `updated_at` is
     /// stamped by the table's BEFORE UPDATE trigger).
     pub async fn mark_approved(
@@ -227,26 +228,25 @@ impl TimeoffRequestRepository {
     /// scope); a row means the rejection landed and carries the settle-relevant fields for the
     /// `LeaveSettled` event.
     ///
-    /// ID-only: no company argument — `fetch_optional_row_scoped` rides the request-dedicated
-    /// connection, so another company's request is simply not matched.
+    /// ID-only: no tenant argument — `fetch_optional_row_scoped` rides the request-dedicated
+    /// connection when one is bound, so another tenant's request is simply not matched.
     pub async fn mark_rejected(
         &self,
         pool: &PgPool,
         timeoff_request_id: Uuid,
     ) -> Result<Option<TimeoffRejectedRow>, sqlx::Error> {
-        let row = company_scope::fetch_optional_row_scoped(
+        let row = org_scope::fetch_optional_row_scoped(
             pool,
             sqlx::query(
                 r#"UPDATE timeoff.timeoff_requests SET status='rejected'::timeoff_request_status
                    WHERE id=$1 AND status='pending'::timeoff_request_status
                      AND (metadata->>'deleted_at') IS NULL
-                   RETURNING company_id, employee_id, date_start, date_end"#,
+                   RETURNING employee_id, date_start, date_end"#,
             )
             .bind(timeoff_request_id),
         )
         .await?;
         Ok(row.map(|r| TimeoffRejectedRow {
-            company_id: r.get("company_id"),
             employee_id: r.get("employee_id"),
             date_start: r.get("date_start"),
             date_end: r.get("date_end"),
@@ -255,18 +255,16 @@ impl TimeoffRequestRepository {
 
     /// Read a request for cancellation. `Ok(None)` = no such live request in scope.
     ///
-    /// ID-only, fenced as [`Self::find_for_approval`]. The projection carries `company_id` deliberately:
-    /// the restore transaction below binds it explicitly, which is what makes the invariant-critical
-    /// path correct for non-request callers too.
+    /// ID-only, fenced as [`Self::find_for_approval`].
     pub async fn find_for_cancel(
         &self,
         pool: &PgPool,
         timeoff_request_id: Uuid,
     ) -> Result<Option<TimeoffCancelRow>, sqlx::Error> {
-        let row = company_scope::fetch_optional_row_scoped(
+        let row = org_scope::fetch_optional_row_scoped(
             pool,
             sqlx::query(
-                r#"SELECT company_id, employee_id, timeoff_type_id,
+                r#"SELECT employee_id, timeoff_type_id,
                           (date_end - date_start + 1)::numeric AS days,
                           date_start, date_end, status::text AS status
                    FROM timeoff.timeoff_requests
@@ -276,7 +274,7 @@ impl TimeoffRequestRepository {
         )
         .await?;
         Ok(row.map(|r| TimeoffCancelRow {
-            company_id: r.get("company_id"), employee_id: r.get("employee_id"),
+            employee_id: r.get("employee_id"),
             timeoff_type_id: r.get("timeoff_type_id"), days: r.get("days"),
             date_start: r.get("date_start"), date_end: r.get("date_end"),
             status: r.get("status"),
@@ -290,7 +288,7 @@ impl TimeoffRequestRepository {
         pool: &PgPool,
         timeoff_request_id: Uuid,
     ) -> Result<u64, sqlx::Error> {
-        let done = company_scope::execute_scoped(
+        let done = org_scope::execute_scoped(
             pool,
             sqlx::query(
                 "UPDATE timeoff.timeoff_requests SET status='cancelled'::timeoff_request_status \
@@ -304,7 +302,8 @@ impl TimeoffRequestRepository {
     /// Cancel an APPROVED request. Returns rows affected: 0 = not approved, caller must roll back.
     ///
     /// Takes the CALLER'S connection so this and the balance restore commit as ONE unit (a balance is
-    /// never left short). The caller has already bound the company on it — don't re-bind here.
+    /// never left short). The caller has already relayed the ambient org scope onto it (when one is
+    /// mounted) — don't re-bind here.
     pub async fn cancel_approved(
         &self,
         conn: &mut sqlx::PgConnection,
@@ -321,8 +320,8 @@ impl TimeoffRequestRepository {
     }
 
     /// Insert a fresh `pending` request. Takes the CALLER'S connection (the
-    /// company is bound on it). Returns rows affected: 0 = rejected by a
-    /// constraint (e.g. the type does not exist).
+    /// ambient org scope is relayed onto it, when one is mounted). Returns rows affected: 0 =
+    /// rejected by a constraint (e.g. the type does not exist).
     pub async fn insert_pending(
         &self,
         conn: &mut sqlx::PgConnection,
@@ -330,12 +329,11 @@ impl TimeoffRequestRepository {
     ) -> Result<u64, sqlx::Error> {
         let done = sqlx::query(
             r#"INSERT INTO timeoff.timeoff_requests
-                   (id, company_id, timeoff_type_id, employee_id,
+                   (id, timeoff_type_id, employee_id,
                     date_start, date_end, note, approval_request_id, status)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending'::timeoff_request_status)"#,
+               VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending'::timeoff_request_status)"#,
         )
         .bind(d.id)
-        .bind(d.company_id)
         .bind(d.timeoff_type_id)
         .bind(d.employee_id)
         .bind(d.date_start)

@@ -186,4 +186,3 @@ pub fn create_protected_timeoff_request_routes<A: AuthMiddleware + Send + Sync +
             }
         }))
 }
-

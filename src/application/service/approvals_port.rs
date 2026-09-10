@@ -39,6 +39,10 @@ pub enum ApprovalVerdict {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApprovalFilingRequest {
     /// The company scope (stamped onto the ApprovalRequest for its own fence).
+    ///
+    /// Legacy tenancy twin (ADR-0029): timeoff itself is tenant-agnostic, but the receiving
+    /// approvals books still key on one. The write service sources it from the ambient org
+    /// scope's legacy company id and fails closed when no scope is bound — it never guesses.
     pub company_id: Uuid,
     /// The timeoff request the filing is about (correlation id).
     pub timeoff_request_id: Uuid,

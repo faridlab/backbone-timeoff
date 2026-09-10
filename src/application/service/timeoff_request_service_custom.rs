@@ -11,8 +11,14 @@
 //! logic is identical. Event emission follows backbone-hr's `HrEventSink` shape through the
 //! module's own `TimeoffEventSink`: each settling verb publishes `LeaveSettled` AFTER its
 //! transaction commits (a rolled-back verb never emits).
+//!
+//! Tenancy (ADR-0029): the module carries no tenancy of its own. Its own transactions relay the
+//! AMBIENT org scope the COMPOSING service bound (`org_scope::bind_org_scope_on`), so the
+//! decorator-installed org-unit fill and row-level fence apply; undecorated deployments run the
+//! transaction plain. The outbound seams that still key on a company (the approvals filing, the
+//! settlement events) carry the scope's legacy company twin — fail-closed when no scope is bound.
 
-use backbone_orm::company_scope;
+use backbone_orm::org_scope;
 use chrono::{Datelike, Utc};
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -35,6 +41,8 @@ pub enum TimeoffError {
     InvalidState(&'static str),
     #[error("insufficient timeoff balance")]
     InsufficientBalance,
+    #[error("no org scope bound: the composing service must resolve one for this request")]
+    NoCompanyScope,
     /// TR2 (Wave 1 P1): the request is linked to an approvals.ApprovalRequest
     /// whose verdict is not `approved` — the timeoff verb refuses to grant.
     #[error("approval not granted for the linked approval request")]
@@ -51,7 +59,7 @@ pub enum TimeoffError {
 /// Mirrors backbone-hr's `HrWriteService` (the leave half). Holds the pool plus the two repositories
 /// the invariant spans: `TimeoffRequestRepository` (the transition) and `TimeoffBalanceRepository`
 /// (the draw/restore). Both are constructed from the same pool; the per-operation transaction is
-/// begun off `self.pool` and the company is bound onto it explicitly via `bind_company_on`.
+/// begun off `self.pool` and the ambient org scope is relayed onto it (when one is bound).
 pub struct TimeoffRequestWriteService {
     pool: PgPool,
     requests: TimeoffRequestRepository,
@@ -77,6 +85,15 @@ impl TimeoffRequestWriteService {
             approvals: Arc::new(UnwiredApprovals),
             events: Arc::new(LoggingSink),
         }
+    }
+
+    /// The company id for the seams that still key on one — the approvals filing
+    /// (`ApprovalFilingRequest`) and the settlement events. Sourced from the ambient org scope the
+    /// COMPOSING service binds; absent → fail-closed. The module never guesses a company.
+    fn legacy_company_id() -> Result<Uuid, TimeoffError> {
+        org_scope::current_org_scope()
+            .and_then(|s| s.legacy_company_id())
+            .ok_or(TimeoffError::NoCompanyScope)
     }
 
     /// Supply the approvals port (the composing app's adapter against
@@ -122,15 +139,19 @@ impl TimeoffRequestWriteService {
     /// link. File-first ordering: the filing carries the client-generated
     /// request id, so the insert lands with `approval_request_id` already set;
     /// a wiring failure fails the submit (no silently untracked request).
+    ///
+    /// Tenancy (ADR-0029): the filing's `company_id` is the legacy twin the unstripped
+    /// approvals books still key on — sourced from the ambient org scope, fail-closed.
     pub async fn submit_request(
         &self,
-        company_id: Uuid,
         timeoff_type_id: Uuid,
         employee_id: Uuid,
         date_start: chrono::NaiveDate,
         date_end: chrono::NaiveDate,
         note: Option<String>,
     ) -> Result<Uuid, TimeoffError> {
+        // The legacy company key the approvals filing keys on (see the tenancy note above).
+        let company_id = Self::legacy_company_id()?;
         let request_id = Uuid::new_v4();
         // File first (outside any tx — the port is a network call to the
         // approvals side; holding a row lock across it is worse than an orphaned
@@ -157,10 +178,13 @@ impl TimeoffRequestWriteService {
         };
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company_id).await?;
+        // Relay the AMBIENT org scope (when the caller bound one) so the composing
+        // decorator's org-unit fill and row-level fence apply to this insert.
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
         let draft = TimeoffRequestDraft {
             id: request_id,
-            company_id,
             timeoff_type_id,
             employee_id,
             date_start,
@@ -190,15 +214,14 @@ impl TimeoffRequestWriteService {
         timeoff_request_id: Uuid,
         approver: Option<Uuid>,
     ) -> Result<(), TimeoffError> {
-        // RLS scope (ADR-0008), ID-only pattern: identified by the request id alone. The read rides
-        // the request-dedicated connection; the company read off the row then binds the transaction
-        // below, so the transition + the balance draw are both fenced even for non-request callers.
+        // ID-only read (ADR-0029): identified by the request id alone. It rides the
+        // request-dedicated connection when the composing service bound one, so a row its
+        // tenancy decorator's fence excludes simply is not found.
         let app = self.requests.find_for_approval(&self.pool, timeoff_request_id).await?
             .ok_or(TimeoffError::NotFound("timeoff request"))?;
         if app.status != "pending" {
             return Err(TimeoffError::InvalidState("timeoff request is not pending"));
         }
-        let company_id = app.company_id;
         let employee_id = app.employee_id;
         let timeoff_type_id = app.timeoff_type_id;
         let days = app.days;
@@ -233,7 +256,11 @@ impl TimeoffRequestWriteService {
         let period = app.date_start.year().to_string();
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company_id).await?;
+        // Relay the AMBIENT org scope (when the caller bound one) so the composing
+        // decorator's fence covers the transition + the balance draw.
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
         // Claim the transition first (write-once), then draw the balance under the same tx.
         let moved = self.requests
             .mark_approved(&mut tx, timeoff_request_id, approver)
@@ -257,18 +284,25 @@ impl TimeoffRequestWriteService {
         // the request is granted but carries no absence, so consumers generate no rows for it.
         let settlement =
             if days.is_zero() { LeaveSettlement::Voided } else { LeaveSettlement::Approved };
+        // The event seam still keys on a company (the leave consumers): source the legacy twin
+        // off the ambient org scope, fail-closed.
+        let company_id = Self::legacy_company_id()?;
         self.settle(company_id, timeoff_request_id, employee_id, date_start, date_end, settlement);
         Ok(())
     }
 
     /// Reject a pending timeoff request (no balance change). Ported from backbone-hr's `reject_leave`.
     pub async fn reject_request(&self, timeoff_request_id: Uuid) -> Result<(), TimeoffError> {
-        // RLS scope (ADR-0008), ID-only pattern: no company argument — the write rides the
-        // request-dedicated connection, so another company's request is simply not matched.
+        // ID-only (ADR-0029): no tenant argument — the gated UPDATE rides the request-dedicated
+        // connection when one is bound, so the composing decorator's fence decides what is
+        // rejectable; another tenant's request is simply not matched.
         let settled = self.requests.mark_rejected(&self.pool, timeoff_request_id).await?;
         let row = settled.ok_or(TimeoffError::InvalidState("timeoff request is not pending"))?;
+        // The event seam still keys on a company (the leave consumers): source the legacy twin
+        // off the ambient org scope, fail-closed.
+        let company_id = Self::legacy_company_id()?;
         self.settle(
-            row.company_id,
+            company_id,
             timeoff_request_id,
             row.employee_id,
             row.date_start,
@@ -283,18 +317,20 @@ impl TimeoffRequestWriteService {
     ///
     /// Ported from backbone-hr's `cancel_leave`.
     pub async fn cancel_request(&self, timeoff_request_id: Uuid) -> Result<(), TimeoffError> {
-        // RLS scope (ADR-0008), ID-only pattern: identified by the request id alone. The read rides
-        // the request-dedicated connection and now also carries `company_id`, so the restore
-        // transaction below can be bound explicitly (correct for non-request callers too).
+        // ID-only read (ADR-0029): identified by the request id alone. It rides the
+        // request-dedicated connection when the composing service bound one, so a row its
+        // tenancy decorator's fence excludes simply is not found.
         let app = self.requests.find_for_cancel(&self.pool, timeoff_request_id).await?
             .ok_or(TimeoffError::NotFound("timeoff request"))?;
-        let company_id = app.company_id;
         let status = app.status.as_str();
         if status == "pending" {
             let m = self.requests.cancel_pending(&self.pool, timeoff_request_id).await?;
             if m != 1 {
                 return Err(TimeoffError::InvalidState("not cancellable"));
             }
+            // The event seam still keys on a company (the leave consumers): source the legacy
+            // twin off the ambient org scope, fail-closed.
+            let company_id = Self::legacy_company_id()?;
             self.settle(
                 company_id,
                 timeoff_request_id,
@@ -314,7 +350,11 @@ impl TimeoffRequestWriteService {
         let period = app.date_start.year().to_string();
 
         let mut tx = self.pool.begin().await?;
-        company_scope::bind_company_on(&mut tx, company_id).await?;
+        // Relay the AMBIENT org scope (when the caller bound one) so the composing
+        // decorator's fence covers the transition + the balance restore.
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
         let moved = self.requests.cancel_approved(&mut tx, timeoff_request_id).await?;
         if moved != 1 {
             tx.rollback().await?;
@@ -334,6 +374,9 @@ impl TimeoffRequestWriteService {
             ));
         }
         tx.commit().await?;
+        // The event seam still keys on a company (the leave consumers): source the legacy twin
+        // off the ambient org scope, fail-closed.
+        let company_id = Self::legacy_company_id()?;
         self.settle(
             company_id,
             timeoff_request_id,

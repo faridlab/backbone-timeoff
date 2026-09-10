@@ -49,7 +49,6 @@ impl From<TimeoffAccrualPlanId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeoffAccrualPlanDto {
     pub id: TimeoffAccrualPlanId,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub name: String,
     pub metadata: serde_json::Value,
@@ -106,7 +105,6 @@ impl From<TimeoffAccrualLevelId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeoffAccrualLevelDto {
     pub id: TimeoffAccrualLevelId,
-    pub company_id: Uuid,
     pub plan_id: Uuid,
     pub sequence: i32,
     pub start_count: Decimal,
@@ -170,7 +168,6 @@ impl From<TimeoffBalanceId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeoffBalanceDto {
     pub id: TimeoffBalanceId,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
     pub period: String,
@@ -235,7 +232,6 @@ impl From<TimeoffRequestId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeoffRequestDto {
     pub id: TimeoffRequestId,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
     pub date_start: NaiveDate,
@@ -299,7 +295,6 @@ impl From<TimeoffTypeId> for Uuid {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimeoffTypeDto {
     pub id: TimeoffTypeId,
-    pub company_id: Uuid,
     pub name: String,
     pub code: Option<String>,
     pub is_paid: bool,

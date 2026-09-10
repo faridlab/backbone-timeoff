@@ -52,10 +52,10 @@ pub trait TimeoffQueryService: Send + Sync {
     /// The dates in `[from, to]` (inclusive) covered by an **approved** `TimeoffRequest` whose
     /// `TimeoffType.is_paid = true` — i.e. paid leave days, what payroll subtracts from working days.
     /// Each request's `[date_start, date_end]` is clamped to `[from, to]` and expanded into individual
-    /// days. Company-scoped via RLS.
+    /// days. Tenancy (ADR-0029): the module is tenant-agnostic — when the composing service binds an
+    /// ambient org scope, its decorator-installed row-level fence owns isolation.
     async fn paid_leave_days(
         &self,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,

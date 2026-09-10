@@ -11,9 +11,10 @@
 //!   [`TimeoffRequestRepository::paid_leave_days`], which holds the hand-written SQL (4-layer rule:
 //!   services orchestrate, repos hold SQL).
 //!
-//! Company scoping (ADR-0008) is NOT done here — the caller (HTTP composition root via
-//! `with_request_scope`, or a job via `with_company_scope`) sets it; `find_by_id` and the repo's
-//! `company_scope::fetch_all_scoped` both honour the task-local RLS fence.
+//! Tenancy (ADR-0029): no scoping is done here — the module is tenant-agnostic. When the
+//! composing service binds an ambient org scope, the repo's reads ride the request-dedicated
+//! connection it holds and the decorator-installed row-level fence owns isolation; `find_by_id`
+//! and `paid_leave_days` both honor it.
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -118,14 +119,13 @@ impl TimeoffQueryService for TimeoffModule {
 
     async fn paid_leave_days(
         &self,
-        company_id: Uuid,
         employee_id: Uuid,
         from: NaiveDate,
         to: NaiveDate,
     ) -> Result<Vec<NaiveDate>> {
         Ok(self
             .timeoff_request_repository
-            .paid_leave_days(&self.db_pool, company_id, employee_id, from, to)
+            .paid_leave_days(&self.db_pool, employee_id, from, to)
             .await?)
     }
 }
@@ -139,7 +139,6 @@ impl TimeoffQueryService for TimeoffModule {
 fn timeoff_balance_to_dto(e: TimeoffBalance) -> Result<TimeoffBalanceDto> {
     Ok(TimeoffBalanceDto {
         id: TimeoffBalanceId(e.id),
-        company_id: e.company_id,
         timeoff_type_id: e.timeoff_type_id,
         employee_id: e.employee_id,
         period: e.period,
@@ -160,7 +159,6 @@ fn timeoff_balance_to_dto(e: TimeoffBalance) -> Result<TimeoffBalanceDto> {
 fn timeoff_request_to_dto(e: TimeoffRequest) -> Result<TimeoffRequestDto> {
     Ok(TimeoffRequestDto {
         id: TimeoffRequestId(e.id),
-        company_id: e.company_id,
         timeoff_type_id: e.timeoff_type_id,
         employee_id: e.employee_id,
         date_start: e.date_start,
@@ -178,7 +176,6 @@ fn timeoff_request_to_dto(e: TimeoffRequest) -> Result<TimeoffRequestDto> {
 fn timeoff_type_to_dto(e: TimeoffType) -> Result<TimeoffTypeDto> {
     Ok(TimeoffTypeDto {
         id: TimeoffTypeId(e.id),
-        company_id: e.company_id,
         name: e.name,
         code: e.code,
         is_paid: e.is_paid,

@@ -44,7 +44,6 @@ pub struct TimeoffAccrualLevelPaginatedResult {
 /// Filter parameters for list queries
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffAccrualLevelFilter {
-    pub company_id: Option<Uuid>,
     pub plan_id: Option<Uuid>,
     pub start_type: Option<AccrualStartType>,
     pub frequency: Option<AccrualFrequency>,
@@ -55,7 +54,7 @@ pub struct TimeoffAccrualLevelFilter {
 impl TimeoffAccrualLevelFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.plan_id.is_some() || self.start_type.is_some() || self.frequency.is_some() || self.is_added_based_on_worked_time.is_some() || self.action_with_lost_days.is_some()
+        self.plan_id.is_some() || self.start_type.is_some() || self.frequency.is_some() || self.is_added_based_on_worked_time.is_some() || self.action_with_lost_days.is_some()
     }
 }
 

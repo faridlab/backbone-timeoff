@@ -58,8 +58,8 @@ impl TimeoffBalanceRepository {
     /// don't have or spend an allocation outside its validity.
     ///
     /// Takes the CALLER'S connection so the draw and the request's `pending → approved` transition
-    /// commit as ONE unit. The caller has already bound the company on it (`bind_company_on`) — don't
-    /// re-bind here.
+    /// commit as ONE unit. The caller has already relayed the ambient org scope onto it
+    /// (`org_scope::bind_org_scope_on`, when one is mounted) — don't re-bind here.
     pub async fn draw(
         &self,
         conn: &mut sqlx::PgConnection,

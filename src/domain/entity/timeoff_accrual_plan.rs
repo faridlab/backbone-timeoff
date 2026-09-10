@@ -48,7 +48,6 @@ impl std::ops::Deref for TimeoffAccrualPlanId {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct TimeoffAccrualPlan {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub name: String,
     #[serde(default)]
@@ -63,10 +62,9 @@ impl TimeoffAccrualPlan {
     }
 
     /// Create a new TimeoffAccrualPlan with required fields
-    pub fn new(company_id: Uuid, timeoff_type_id: Uuid, name: String) -> Self {
+    pub fn new(timeoff_type_id: Uuid, name: String) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id,
             timeoff_type_id,
             name,
             metadata: AuditMetadata::default(),
@@ -132,9 +130,6 @@ impl TimeoffAccrualPlan {
     pub fn apply_patch(&mut self, fields: std::collections::HashMap<String, serde_json::Value>) {
         for (key, value) in fields {
             match key.as_str() {
-                "company_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.company_id = v; }
-                }
                 "timeoff_type_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.timeoff_type_id = v; }
                 }
@@ -195,15 +190,11 @@ impl backbone_orm::EntityRepoMeta for TimeoffAccrualPlan {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
-        m.insert("company_id".to_string(), "uuid".to_string());
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
         &["name"]
-    }
-    fn company_field() -> Option<&'static str> {
-        Some("company_id")
     }
 }
 
@@ -213,18 +204,11 @@ impl backbone_orm::EntityRepoMeta for TimeoffAccrualPlan {
 /// System fields (id, metadata, timestamps) are auto-initialized.
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffAccrualPlanBuilder {
-    company_id: Option<Uuid>,
     timeoff_type_id: Option<Uuid>,
     name: Option<String>,
 }
 
 impl TimeoffAccrualPlanBuilder {
-    /// Set the company_id field (required)
-    pub fn company_id(mut self, value: Uuid) -> Self {
-        self.company_id = Some(value);
-        self
-    }
-
     /// Set the timeoff_type_id field (required)
     pub fn timeoff_type_id(mut self, value: Uuid) -> Self {
         self.timeoff_type_id = Some(value);
@@ -241,13 +225,11 @@ impl TimeoffAccrualPlanBuilder {
     ///
     /// Returns Err if any required field without a default is missing.
     pub fn build(self) -> Result<TimeoffAccrualPlan, String> {
-        let company_id = self.company_id.ok_or_else(|| "company_id is required".to_string())?;
         let timeoff_type_id = self.timeoff_type_id.ok_or_else(|| "timeoff_type_id is required".to_string())?;
         let name = self.name.ok_or_else(|| "name is required".to_string())?;
 
         Ok(TimeoffAccrualPlan {
             id: Uuid::new_v4(),
-            company_id,
             timeoff_type_id,
             name,
             metadata: AuditMetadata::default(),

@@ -32,9 +32,6 @@ use crate::domain::entity::AuditMetadata;
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateTimeoffTypeDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "validation", validate(length(max = 120)))]
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     pub name: String,
@@ -62,9 +59,6 @@ pub struct CreateTimeoffTypeDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateTimeoffTypeDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(alias = "company_id")]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "validation", validate(length(max = 120)))]
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     pub name: String,
@@ -92,9 +86,6 @@ pub struct UpdateTimeoffTypeDto {
 #[cfg_attr(feature = "validation", derive(Validate))]
 #[serde(rename_all = "camelCase")]
 pub struct PatchTimeoffTypeDto {
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    #[serde(skip_serializing_if = "Option::is_none", alias = "company_id")]
-    pub company_id: Option<Uuid>,
     #[cfg_attr(feature = "validation", validate(length(max = 120)))]
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -113,7 +104,7 @@ pub struct PatchTimeoffTypeDto {
 impl PatchTimeoffTypeDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.company_id.is_some() || self.name.is_some() || self.code.is_some() || self.is_paid.is_some() || self.allow_carry_forward.is_some()
+        self.name.is_some() || self.code.is_some() || self.is_paid.is_some() || self.allow_carry_forward.is_some()
     }
 }
 
@@ -131,8 +122,6 @@ impl PatchTimeoffTypeDto {
 pub struct TimeoffTypeResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
     pub id: Uuid,
-    #[cfg_attr(feature = "openapi", schema(example = "550e8400-e29b-41d4-a716-446655440000"))]
-    pub company_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     pub name: String,
     pub code: Option<String>,
@@ -197,9 +186,9 @@ impl TimeoffTypeListResponseDto {
 #[serde(rename_all = "camelCase")]
 pub struct TimeoffTypeSummaryDto {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub name: String,
     pub code: Option<String>,
+    pub is_paid: bool,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -211,7 +200,6 @@ impl From<TimeoffType> for TimeoffTypeResponseDto {
     fn from(entity: TimeoffType) -> Self {
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             name: entity.name,
             code: entity.code,
             is_paid: entity.is_paid,
@@ -226,9 +214,9 @@ impl From<TimeoffType> for TimeoffTypeSummaryDto {
         let created_at = backbone_core::PersistentEntity::created_at(&entity);
         Self {
             id: entity.id,
-            company_id: entity.company_id,
             name: entity.name,
             code: entity.code,
+            is_paid: entity.is_paid,
             created_at,
         }
     }
@@ -238,7 +226,6 @@ impl From<CreateTimeoffTypeDto> for TimeoffType {
     fn from(dto: CreateTimeoffTypeDto) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id: dto.company_id,
             name: dto.name,
             code: dto.code,
             is_paid: dto.is_paid,
@@ -252,7 +239,6 @@ impl From<&TimeoffType> for TimeoffTypeResponseDto {
     fn from(entity: &TimeoffType) -> Self {
         Self {
             id: entity.id.clone(),
-            company_id: entity.company_id.clone(),
             name: entity.name.clone(),
             code: entity.code.clone(),
             is_paid: entity.is_paid.clone(),
@@ -270,7 +256,6 @@ impl backbone_core::FromCreateDto<CreateTimeoffTypeDto> for TimeoffType {
 
 impl backbone_core::ApplyUpdateDto<UpdateTimeoffTypeDto> for TimeoffType {
     fn apply_update(mut self, dto: UpdateTimeoffTypeDto) -> backbone_core::ServiceResult<Self> {
-        self.company_id = dto.company_id;
         self.name = dto.name;
         self.code = dto.code;
         self.is_paid = dto.is_paid;
@@ -287,4 +272,3 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffTypeDto> for TimeoffType {
 // Add custom DTOs specific to TimeoffType here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
-

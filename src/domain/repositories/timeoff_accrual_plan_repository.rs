@@ -44,7 +44,6 @@ pub struct TimeoffAccrualPlanPaginatedResult {
 /// Filter parameters for list queries
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffAccrualPlanFilter {
-    pub company_id: Option<Uuid>,
     pub timeoff_type_id: Option<Uuid>,
     pub name: Option<String>,
 }
@@ -52,7 +51,7 @@ pub struct TimeoffAccrualPlanFilter {
 impl TimeoffAccrualPlanFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.name.is_some()
+        self.timeoff_type_id.is_some() || self.name.is_some()
     }
 }
 

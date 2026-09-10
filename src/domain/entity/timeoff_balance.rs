@@ -49,7 +49,6 @@ impl std::ops::Deref for TimeoffBalanceId {
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct TimeoffBalance {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
     pub period: String,
@@ -73,10 +72,9 @@ impl TimeoffBalance {
     }
 
     /// Create a new TimeoffBalance with required fields
-    pub fn new(company_id: Uuid, timeoff_type_id: Uuid, employee_id: Uuid, period: String, allocated: Decimal, used: Decimal, carried_over: Decimal) -> Self {
+    pub fn new(timeoff_type_id: Uuid, employee_id: Uuid, period: String, allocated: Decimal, used: Decimal, carried_over: Decimal) -> Self {
         Self {
             id: Uuid::new_v4(),
-            company_id,
             timeoff_type_id,
             employee_id,
             period,
@@ -185,9 +183,6 @@ impl TimeoffBalance {
     pub fn apply_patch(&mut self, fields: std::collections::HashMap<String, serde_json::Value>) {
         for (key, value) in fields {
             match key.as_str() {
-                "company_id" => {
-                    if let Ok(v) = serde_json::from_value(value) { self.company_id = v; }
-                }
                 "timeoff_type_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.timeoff_type_id = v; }
                 }
@@ -275,7 +270,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffBalance {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
-        m.insert("company_id".to_string(), "uuid".to_string());
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("accrual_plan_id".to_string(), "uuid".to_string());
@@ -283,9 +277,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffBalance {
     }
     fn search_fields() -> &'static [&'static str] {
         &["period"]
-    }
-    fn company_field() -> Option<&'static str> {
-        Some("company_id")
     }
 }
 
@@ -295,7 +286,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffBalance {
 /// System fields (id, metadata, timestamps) are auto-initialized.
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffBalanceBuilder {
-    company_id: Option<Uuid>,
     timeoff_type_id: Option<Uuid>,
     employee_id: Option<Uuid>,
     period: Option<String>,
@@ -310,12 +300,6 @@ pub struct TimeoffBalanceBuilder {
 }
 
 impl TimeoffBalanceBuilder {
-    /// Set the company_id field (required)
-    pub fn company_id(mut self, value: Uuid) -> Self {
-        self.company_id = Some(value);
-        self
-    }
-
     /// Set the timeoff_type_id field (required)
     pub fn timeoff_type_id(mut self, value: Uuid) -> Self {
         self.timeoff_type_id = Some(value);
@@ -386,7 +370,6 @@ impl TimeoffBalanceBuilder {
     ///
     /// Returns Err if any required field without a default is missing.
     pub fn build(self) -> Result<TimeoffBalance, String> {
-        let company_id = self.company_id.ok_or_else(|| "company_id is required".to_string())?;
         let timeoff_type_id = self.timeoff_type_id.ok_or_else(|| "timeoff_type_id is required".to_string())?;
         let employee_id = self.employee_id.ok_or_else(|| "employee_id is required".to_string())?;
         let period = self.period.ok_or_else(|| "period is required".to_string())?;
@@ -394,7 +377,6 @@ impl TimeoffBalanceBuilder {
 
         Ok(TimeoffBalance {
             id: Uuid::new_v4(),
-            company_id,
             timeoff_type_id,
             employee_id,
             period,

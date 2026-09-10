@@ -55,8 +55,10 @@ Per balance, in one short tx per row (`commit_policy: commit_per_batch`):
 guarded by `last_accrual_at IS NOT DISTINCT FROM <claimed value>`, so two
 concurrent walks can never double-grant a row (the loser's update matches
 zero rows and is counted as raced/skipped). The walk is a background job
-crossing all companies: each row's tx binds the row's own `company_id`
-(ADR-0014 fence holds end-to-end).
+crossing all tenants: each row's apply tx relays the ambient org scope the
+composing service bound (`org_scope::bind_org_scope_on`) when one is bound,
+so the decorator-installed fence holds end-to-end; an undecorated
+deployment applies plain.
 
 **Posture** (`posture: self_arming`): the daily 03:00 schedule is a FLOOR.
 The composing app arms the job from `timeoff_balance_created` /

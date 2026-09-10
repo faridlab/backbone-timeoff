@@ -44,7 +44,6 @@ pub struct TimeoffRequestPaginatedResult {
 /// Filter parameters for list queries
 #[derive(Debug, Clone, Default)]
 pub struct TimeoffRequestFilter {
-    pub company_id: Option<Uuid>,
     pub timeoff_type_id: Option<Uuid>,
     pub employee_id: Option<Uuid>,
     pub note: Option<String>,
@@ -57,7 +56,7 @@ pub struct TimeoffRequestFilter {
 impl TimeoffRequestFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.company_id.is_some() || self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
+        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
     }
 }
 

@@ -2,7 +2,7 @@
 //!
 //! Live-pool pattern (payroll/employee convention): a migrated
 //! `backbone_timeoff_test` DB on the metaphora dev postgres; fresh random
-//! company ids per test. The walk tests serialize on a static lock — every
+//! primary keys per test. The walk tests serialize on a static lock — every
 //! due row in the DB belongs to the lock-holder, so a run's outcome tallies
 //! are exact and never process another test's mid-flight fixtures.
 //!
@@ -47,14 +47,13 @@ fn at(y: i32, m: u32, d: u32) -> chrono::DateTime<Utc> {
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
-async fn seed_type(pool: &PgPool, company_id: Uuid) -> Uuid {
+async fn seed_type(pool: &PgPool) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
-        r#"INSERT INTO timeoff.timeoff_types (id, company_id, name, code)
-           VALUES ($1, $2, 'Annual Leave', $3)"#,
+        r#"INSERT INTO timeoff.timeoff_types (id, name, code)
+           VALUES ($1, 'Annual Leave', $2)"#,
     )
     .bind(id)
-    .bind(company_id)
     .bind(format!("AL-{}", &id.to_string()[..8]))
     .execute(pool)
     .await
@@ -62,14 +61,13 @@ async fn seed_type(pool: &PgPool, company_id: Uuid) -> Uuid {
     id
 }
 
-async fn seed_plan(pool: &PgPool, company_id: Uuid, type_id: Uuid) -> Uuid {
+async fn seed_plan(pool: &PgPool, type_id: Uuid) -> Uuid {
     let id = Uuid::new_v4();
     sqlx::query(
-        r#"INSERT INTO timeoff.timeoff_accrual_plans (id, company_id, timeoff_type_id, name)
-           VALUES ($1, $2, $3, 'Standard accrual')"#,
+        r#"INSERT INTO timeoff.timeoff_accrual_plans (id, timeoff_type_id, name)
+           VALUES ($1, $2, 'Standard accrual')"#,
     )
     .bind(id)
-    .bind(company_id)
     .bind(type_id)
     .execute(pool)
     .await
@@ -80,7 +78,6 @@ async fn seed_plan(pool: &PgPool, company_id: Uuid, type_id: Uuid) -> Uuid {
 #[allow(clippy::too_many_arguments)]
 async fn seed_level(
     pool: &PgPool,
-    company_id: Uuid,
     plan_id: Uuid,
     sequence: i32,
     start_count: Decimal,
@@ -93,14 +90,13 @@ async fn seed_level(
 ) {
     sqlx::query(
         r#"INSERT INTO timeoff.timeoff_accrual_levels
-               (id, company_id, plan_id, sequence, start_count, start_type,
+               (id, plan_id, sequence, start_count, start_type,
                 frequency, added_value, is_added_based_on_worked_time,
                 maximum_leave, action_with_lost_days, postponed_max_days)
-           VALUES ($1, $2, $3, $4, $5, $6::accrual_start_type, $7::accrual_frequency,
-                   $8, false, $9, $10::accrual_lost_days_action, $11)"#,
+           VALUES ($1, $2, $3, $4, $5::accrual_start_type, $6::accrual_frequency,
+                   $7, false, $8, $9::accrual_lost_days_action, $10)"#,
     )
     .bind(Uuid::new_v4())
-    .bind(company_id)
     .bind(plan_id)
     .bind(sequence)
     .bind(start_count)
@@ -118,7 +114,6 @@ async fn seed_level(
 #[allow(clippy::too_many_arguments)]
 async fn seed_balance(
     pool: &PgPool,
-    company_id: Uuid,
     type_id: Uuid,
     employee_id: Uuid,
     period: &str,
@@ -130,12 +125,11 @@ async fn seed_balance(
     let id = Uuid::new_v4();
     sqlx::query(
         r#"INSERT INTO timeoff.timeoff_balances
-               (id, company_id, timeoff_type_id, employee_id, period,
+               (id, timeoff_type_id, employee_id, period,
                 allocated, used, accrual_plan_id, date_from, date_to)
-           VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, $9)"#,
+           VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $8)"#,
     )
     .bind(id)
-    .bind(company_id)
     .bind(type_id)
     .bind(employee_id)
     .bind(period)
@@ -167,12 +161,11 @@ async fn balance_state(pool: &PgPool, id: Uuid) -> (Decimal, Decimal, Decimal, O
 async fn accrual_monthly_grant_advances_watermark() {
     let _g = WALK.lock().await;
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    let plan = seed_plan(&pool, company, type_id).await;
-    seed_level(&pool, company, plan, 1, Decimal::ZERO, "days", "monthly",
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "monthly",
                Decimal::new(15, 1), None, "nothing", None).await;
-    let bal = seed_balance(&pool, company, type_id, Uuid::new_v4(), "2026",
+    let bal = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
                            Decimal::ZERO, Some(plan), Some(day(2026, 1, 1)), None).await;
 
     // 2026-01-01 → 2026-03-10: TWO whole monthly periods elapsed (Feb 1, Mar 1).
@@ -189,12 +182,11 @@ async fn accrual_monthly_grant_advances_watermark() {
 async fn accrual_is_idempotent_and_grants_only_the_delta() {
     let _g = WALK.lock().await;
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    let plan = seed_plan(&pool, company, type_id).await;
-    seed_level(&pool, company, plan, 1, Decimal::ZERO, "days", "monthly",
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "monthly",
                Decimal::new(15, 1), None, "nothing", None).await;
-    let bal = seed_balance(&pool, company, type_id, Uuid::new_v4(), "2026",
+    let bal = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
                            Decimal::ZERO, Some(plan), Some(day(2026, 1, 1)), None).await;
 
     let svc = AccrualService::new(pool.clone());
@@ -214,14 +206,13 @@ async fn accrual_is_idempotent_and_grants_only_the_delta() {
 async fn accrual_caps_at_maximum_and_postpones_the_excess() {
     let _g = WALK.lock().await;
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    let plan = seed_plan(&pool, company, type_id).await;
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
     // 2.0/month, cap 5, postpone up to 3.
-    seed_level(&pool, company, plan, 1, Decimal::ZERO, "days", "monthly",
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "monthly",
                Decimal::from(2), Some(Decimal::from(5)),
                "postponed_to_next_accrual", Some(Decimal::from(3))).await;
-    let bal = seed_balance(&pool, company, type_id, Uuid::new_v4(), "2026",
+    let bal = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
                            Decimal::from(4), Some(plan), Some(day(2026, 1, 1)), None).await;
 
     let svc = AccrualService::new(pool.clone());
@@ -244,12 +235,11 @@ async fn accrual_caps_at_maximum_and_postpones_the_excess() {
 async fn accrual_lost_days_action_nothing_drops_the_excess() {
     let _g = WALK.lock().await;
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    let plan = seed_plan(&pool, company, type_id).await;
-    seed_level(&pool, company, plan, 1, Decimal::ZERO, "days", "monthly",
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "monthly",
                Decimal::from(2), Some(Decimal::from(5)), "nothing", None).await;
-    let bal = seed_balance(&pool, company, type_id, Uuid::new_v4(), "2026",
+    let bal = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
                            Decimal::from(4), Some(plan), Some(day(2026, 1, 1)), None).await;
 
     let out = AccrualService::new(pool.clone())
@@ -265,12 +255,11 @@ async fn accrual_lost_days_action_nothing_drops_the_excess() {
 async fn accrual_expires_past_the_validity_window() {
     let _g = WALK.lock().await;
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    let plan = seed_plan(&pool, company, type_id).await;
-    seed_level(&pool, company, plan, 1, Decimal::ZERO, "days", "monthly",
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "monthly",
                Decimal::new(15, 1), None, "nothing", None).await;
-    let bal = seed_balance(&pool, company, type_id, Uuid::new_v4(), "2026",
+    let bal = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
                            Decimal::ZERO, Some(plan), Some(day(2026, 1, 1)), Some(day(2026, 2, 1))).await;
 
     AccrualService::new(pool.clone()).run_accrual(at(2026, 3, 10), 50, 10).await.unwrap();
@@ -283,15 +272,14 @@ async fn accrual_expires_past_the_validity_window() {
 async fn accrual_ladder_picks_the_latest_eligible_rung() {
     let _g = WALK.lock().await;
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    let plan = seed_plan(&pool, company, type_id).await;
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
     // Year 1: 1.0/month. After 12 months of tenure: 2.0/month.
-    seed_level(&pool, company, plan, 1, Decimal::ZERO, "days", "monthly",
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "monthly",
                Decimal::from(1), None, "nothing", None).await;
-    seed_level(&pool, company, plan, 2, Decimal::from(12), "months", "monthly",
+    seed_level(&pool, plan, 2, Decimal::from(12), "months", "monthly",
                Decimal::from(2), None, "nothing", None).await;
-    let bal = seed_balance(&pool, company, type_id, Uuid::new_v4(), "2026",
+    let bal = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
                            Decimal::ZERO, Some(plan), Some(day(2025, 1, 1)), None).await;
 
     // 14 whole months elapsed since 2025-01-01 → the 12-month rung applies.
@@ -304,12 +292,11 @@ async fn accrual_ladder_picks_the_latest_eligible_rung() {
 async fn accrual_once_grants_exactly_one_time() {
     let _g = WALK.lock().await;
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    let plan = seed_plan(&pool, company, type_id).await;
-    seed_level(&pool, company, plan, 1, Decimal::ZERO, "days", "once",
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "once",
                Decimal::from(5), None, "nothing", None).await;
-    let bal = seed_balance(&pool, company, type_id, Uuid::new_v4(), "2026",
+    let bal = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
                            Decimal::ZERO, Some(plan), Some(day(2026, 1, 1)), None).await;
 
     let svc = AccrualService::new(pool.clone());
@@ -364,125 +351,111 @@ impl ApprovalFiling for FakeApprovals {
 #[tokio::test]
 async fn seam_wired_submits_file_and_approve_honors_the_verdict() {
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let employee = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    seed_balance(&pool, company, type_id, employee, "2026", Decimal::from(5), None, None, None).await;
+    common::scoped_as(&pool, Uuid::new_v4(), async {
+        let employee = Uuid::new_v4();
+        let type_id = seed_type(&pool).await;
+        seed_balance(&pool, type_id, employee, "2026", Decimal::from(5), None, None, None).await;
 
-    let port = FakeApprovals::new();
-    let svc = TimeoffRequestWriteService::new(pool.clone()).with_approvals(port.clone());
+        let port = FakeApprovals::new();
+        let svc = TimeoffRequestWriteService::new(pool.clone()).with_approvals(port.clone());
 
-    let request_id = svc
-        .submit_request(company, type_id, employee, day(2026, 3, 2), day(2026, 3, 3), Some("family event".into()))
+        let request_id = svc
+            .submit_request(type_id, employee, day(2026, 3, 2), day(2026, 3, 3), Some("family event".into()))
+            .await
+            .unwrap();
+
+        // Filed with the engine, linked on the row, with the inclusive day count.
+        {
+            let filings = port.filings.lock().unwrap();
+            assert_eq!(filings.len(), 1);
+            assert_eq!(filings[0].timeoff_request_id, request_id);
+            assert_eq!(filings[0].days, Decimal::from(2));
+        }
+        let linked: Option<Uuid> = sqlx::query_scalar(
+            r#"SELECT approval_request_id FROM timeoff.timeoff_requests WHERE id = $1"#,
+        )
+        .bind(request_id)
+        .fetch_one(&pool)
         .await
         .unwrap();
+        let approval_id = linked.expect("request must be linked to its filing");
 
-    // Filed with the engine, linked on the row, with the inclusive day count.
-    {
-        let filings = port.filings.lock().unwrap();
-        assert_eq!(filings.len(), 1);
-        assert_eq!(filings[0].timeoff_request_id, request_id);
-        assert_eq!(filings[0].days, Decimal::from(2));
-    }
-    let linked: Option<Uuid> = sqlx::query_scalar(
-        r#"SELECT approval_request_id FROM timeoff.timeoff_requests WHERE id = $1"#,
-    )
-    .bind(request_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    let approval_id = linked.expect("request must be linked to its filing");
+        // TR2: pending verdict blocks the approve.
+        let blocked = svc.approve_request(request_id, None).await.unwrap_err();
+        assert!(matches!(blocked, TimeoffError::ApprovalNotGranted));
 
-    // TR2: pending verdict blocks the approve.
-    let blocked = svc.approve_request(request_id, None).await.unwrap_err();
-    assert!(matches!(blocked, TimeoffError::ApprovalNotGranted));
-
-    // Engine grants → the verb passes (and draws the balance).
-    port.set_verdict(approval_id, ApprovalVerdict::Approved);
-    svc.approve_request(request_id, None).await.unwrap();
-    let status: String = sqlx::query_scalar(
-        r#"SELECT status::text FROM timeoff.timeoff_requests WHERE id = $1"#,
-    )
-    .bind(request_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(status, "approved");
+        // Engine grants → the verb passes (and draws the balance).
+        port.set_verdict(approval_id, ApprovalVerdict::Approved);
+        svc.approve_request(request_id, None).await.unwrap();
+        let status: String = sqlx::query_scalar(
+            r#"SELECT status::text FROM timeoff.timeoff_requests WHERE id = $1"#,
+        )
+        .bind(request_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(status, "approved");
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn seam_unwired_keeps_the_pre_p1_behavior() {
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let employee = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    seed_balance(&pool, company, type_id, employee, "2026", Decimal::from(5), None, None, None).await;
+    common::scoped_as(&pool, Uuid::new_v4(), async {
+        let employee = Uuid::new_v4();
+        let type_id = seed_type(&pool).await;
+        seed_balance(&pool, type_id, employee, "2026", Decimal::from(5), None, None, None).await;
 
-    let svc = TimeoffRequestWriteService::new(pool.clone());
-    let request_id = svc
-        .submit_request(company, type_id, employee, day(2026, 3, 2), day(2026, 3, 3), None)
+        let svc = TimeoffRequestWriteService::new(pool.clone());
+        let request_id = svc
+            .submit_request(type_id, employee, day(2026, 3, 2), day(2026, 3, 3), None)
+            .await
+            .unwrap();
+
+        let linked: Option<Uuid> = sqlx::query_scalar(
+            r#"SELECT approval_request_id FROM timeoff.timeoff_requests WHERE id = $1"#,
+        )
+        .bind(request_id)
+        .fetch_one(&pool)
         .await
         .unwrap();
+        assert!(linked.is_none(), "unwired seam must not link a filing");
 
-    let linked: Option<Uuid> = sqlx::query_scalar(
-        r#"SELECT approval_request_id FROM timeoff.timeoff_requests WHERE id = $1"#,
-    )
-    .bind(request_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert!(linked.is_none(), "unwired seam must not link a filing");
-
-    // Direct manager approval still works (backward compatible).
-    svc.approve_request(request_id, None).await.unwrap();
+        // Direct manager approval still works (backward compatible).
+        svc.approve_request(request_id, None).await.unwrap();
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn draw_gate_honors_the_balance_validity_window() {
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let employee = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    // Allocation valid June 2026 only.
-    seed_balance(&pool, company, type_id, employee, "2026", Decimal::from(5), None,
-                 Some(day(2026, 6, 1)), Some(day(2026, 6, 30))).await;
+    common::scoped_as(&pool, Uuid::new_v4(), async {
+        let employee = Uuid::new_v4();
+        let type_id = seed_type(&pool).await;
+        // Allocation valid June 2026 only.
+        seed_balance(&pool, type_id, employee, "2026", Decimal::from(5), None,
+                     Some(day(2026, 6, 1)), Some(day(2026, 6, 30))).await;
 
-    let svc = TimeoffRequestWriteService::new(pool.clone());
+        let svc = TimeoffRequestWriteService::new(pool.clone());
 
-    // July leave cannot draw from a June-only allocation.
-    let outside = svc
-        .submit_request(company, type_id, employee, day(2026, 7, 1), day(2026, 7, 2), None)
-        .await
-        .unwrap();
-    let refused = svc.approve_request(outside, None).await.unwrap_err();
-    assert!(matches!(refused, TimeoffError::InsufficientBalance));
+        // July leave cannot draw from a June-only allocation.
+        let outside = svc
+            .submit_request(type_id, employee, day(2026, 7, 1), day(2026, 7, 2), None)
+            .await
+            .unwrap();
+        let refused = svc.approve_request(outside, None).await.unwrap_err();
+        assert!(matches!(refused, TimeoffError::InsufficientBalance));
 
-    // June leave draws fine.
-    let inside = svc
-        .submit_request(company, type_id, employee, day(2026, 6, 1), day(2026, 6, 2), None)
-        .await
-        .unwrap();
-    svc.approve_request(inside, None).await.unwrap();
-}
-
-#[tokio::test]
-async fn fence_policies_cover_every_fenced_table() {
-    let pool = common::pool().await;
-    let policies: Vec<String> = sqlx::query_scalar(
-        r#"SELECT policyname FROM pg_policies WHERE schemaname = 'timeoff' ORDER BY 1"#,
-    )
-    .fetch_all(&pool)
-    .await
-    .unwrap();
-    for expected in [
-        "timeoff_types_company_isolation",
-        "timeoff_requests_company_isolation",
-        "timeoff_balances_company_isolation",
-        "timeoff_accrual_plans_company_isolation",
-        "timeoff_accrual_levels_company_isolation",
-    ] {
-        assert!(policies.iter().any(|p| p == expected), "missing fence policy {expected}");
-    }
+        // June leave draws fine.
+        let inside = svc
+            .submit_request(type_id, employee, day(2026, 6, 1), day(2026, 6, 2), None)
+            .await
+            .unwrap();
+        svc.approve_request(inside, None).await.unwrap();
+    })
+    .await;
 }
 
 /// The module-level swap: a module built with the default (unwired) write service is handed
@@ -491,37 +464,39 @@ async fn fence_policies_cover_every_fenced_table() {
 #[tokio::test]
 async fn module_swap_arms_the_approvals_seam() {
     let pool = common::pool().await;
-    let company = Uuid::new_v4();
-    let employee = Uuid::new_v4();
-    let type_id = seed_type(&pool, company).await;
-    seed_balance(&pool, company, type_id, employee, "2026", Decimal::from(5), None, None, None).await;
+    common::scoped_as(&pool, Uuid::new_v4(), async {
+        let employee = Uuid::new_v4();
+        let type_id = seed_type(&pool).await;
+        seed_balance(&pool, type_id, employee, "2026", Decimal::from(5), None, None, None).await;
 
-    let m = backbone_timeoff::TimeoffModule::builder()
-        .with_database(pool.clone())
-        .build()
-        .unwrap();
-    let port = FakeApprovals::new();
-    let m = m.with_timeoff_write_service(Arc::new(
-        TimeoffRequestWriteService::new(pool.clone()).with_approvals(port.clone()),
-    ));
+        let m = backbone_timeoff::TimeoffModule::builder()
+            .with_database(pool.clone())
+            .build()
+            .unwrap();
+        let port = FakeApprovals::new();
+        let m = m.with_timeoff_write_service(Arc::new(
+            TimeoffRequestWriteService::new(pool.clone()).with_approvals(port.clone()),
+        ));
 
-    let request_id = m
-        .timeoff_write_service()
-        .submit_request(company, type_id, employee, day(2026, 4, 6), day(2026, 4, 7), None)
+        let request_id = m
+            .timeoff_write_service()
+            .submit_request(type_id, employee, day(2026, 4, 6), day(2026, 4, 7), None)
+            .await
+            .unwrap();
+
+        let filings = port.filings.lock().unwrap();
+        assert_eq!(filings.len(), 1, "the swapped service files through the port");
+        assert_eq!(filings[0].timeoff_request_id, request_id);
+        drop(filings);
+
+        let linked: Option<Uuid> = sqlx::query_scalar(
+            r#"SELECT approval_request_id FROM timeoff.timeoff_requests WHERE id = $1"#,
+        )
+        .bind(request_id)
+        .fetch_one(&pool)
         .await
         .unwrap();
-
-    let filings = port.filings.lock().unwrap();
-    assert_eq!(filings.len(), 1, "the swapped service files through the port");
-    assert_eq!(filings[0].timeoff_request_id, request_id);
-    drop(filings);
-
-    let linked: Option<Uuid> = sqlx::query_scalar(
-        r#"SELECT approval_request_id FROM timeoff.timeoff_requests WHERE id = $1"#,
-    )
-    .bind(request_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert!(linked.is_some(), "the module-held service linked the filing");
+        assert!(linked.is_some(), "the module-held service linked the filing");
+    })
+    .await;
 }

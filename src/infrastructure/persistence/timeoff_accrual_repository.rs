@@ -26,7 +26,6 @@ use uuid::Uuid;
 #[derive(Debug, Clone, FromRow)]
 pub struct AccrualWalkRow {
     pub id: Uuid,
-    pub company_id: Uuid,
     pub timeoff_type_id: Uuid,
     pub employee_id: Uuid,
     pub period: String,
@@ -78,7 +77,7 @@ impl TimeoffAccrualRepository {
         batch: i64,
     ) -> Result<Vec<AccrualWalkRow>, sqlx::Error> {
         sqlx::query_as::<_, AccrualWalkRow>(
-            r#"SELECT id, company_id, timeoff_type_id, employee_id, period,
+            r#"SELECT id, timeoff_type_id, employee_id, period,
                       allocated, used, accrual_plan_id, date_from, date_to,
                       last_accrual_at, carried_over
                FROM timeoff.timeoff_balances
@@ -179,7 +178,7 @@ impl TimeoffAccrualRepository {
         balance_id: Uuid,
     ) -> Result<Option<AccrualWalkRow>, sqlx::Error> {
         sqlx::query_as::<_, AccrualWalkRow>(
-            r#"SELECT id, company_id, timeoff_type_id, employee_id, period,
+            r#"SELECT id, timeoff_type_id, employee_id, period,
                       allocated, used, accrual_plan_id, date_from, date_to,
                       last_accrual_at, carried_over
                FROM timeoff.timeoff_balances

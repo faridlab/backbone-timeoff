@@ -185,4 +185,3 @@ pub fn create_protected_timeoff_accrual_plan_routes<A: AuthMiddleware + Send + S
             }
         }))
 }
-
