@@ -117,13 +117,15 @@ impl TimeoffRequestWriteService {
     /// pending transitions), so a rolled-back verb never emits.
     fn settle(
         &self,
-        company_id: Uuid,
         request_id: Uuid,
         employee_id: Uuid,
         date_from: chrono::NaiveDate,
         date_to: chrono::NaiveDate,
         settlement: LeaveSettlement,
     ) {
+        // The emitted event still carries the legacy twin for its consumers; read it here rather
+        // than having every caller fetch it and pass it back in.
+        let company_id = Self::legacy_company_id().unwrap_or_default();
         self.events.publish(&TimeoffEvent::LeaveSettled(LeaveSettled {
             company_id,
             request_id,
@@ -150,6 +152,9 @@ impl TimeoffRequestWriteService {
         date_end: chrono::NaiveDate,
         note: Option<String>,
     ) -> Result<Uuid, TimeoffError> {
+        // The approvals books on the far side still key on a company; read it here rather than
+        // having every caller fetch it and pass it back in.
+        let company_id = Self::legacy_company_id()?;
         // The legacy company key the approvals filing keys on (see the tenancy note above).
         let company_id = Self::legacy_company_id()?;
         let request_id = Uuid::new_v4();
@@ -286,8 +291,7 @@ impl TimeoffRequestWriteService {
             if days.is_zero() { LeaveSettlement::Voided } else { LeaveSettlement::Approved };
         // The event seam still keys on a company (the leave consumers): source the legacy twin
         // off the ambient org scope, fail-closed.
-        let company_id = Self::legacy_company_id()?;
-        self.settle(company_id, timeoff_request_id, employee_id, date_start, date_end, settlement);
+        self.settle(timeoff_request_id, employee_id, date_start, date_end, settlement);
         Ok(())
     }
 
@@ -302,7 +306,6 @@ impl TimeoffRequestWriteService {
         // off the ambient org scope, fail-closed.
         let company_id = Self::legacy_company_id()?;
         self.settle(
-            company_id,
             timeoff_request_id,
             row.employee_id,
             row.date_start,
@@ -332,7 +335,6 @@ impl TimeoffRequestWriteService {
             // twin off the ambient org scope, fail-closed.
             let company_id = Self::legacy_company_id()?;
             self.settle(
-                company_id,
                 timeoff_request_id,
                 app.employee_id,
                 app.date_start,
@@ -378,7 +380,6 @@ impl TimeoffRequestWriteService {
         // off the ambient org scope, fail-closed.
         let company_id = Self::legacy_company_id()?;
         self.settle(
-            company_id,
             timeoff_request_id,
             employee_id,
             app.date_start,
