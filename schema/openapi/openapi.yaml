@@ -2342,6 +2342,7 @@ components:
         - employee_id
         - date_start
         - date_end
+        - part
         - status
         - metadata
       properties:
@@ -2364,6 +2365,16 @@ components:
           nullable: true
           type: string
           maxLength: 1000
+        part:
+          type: string
+        attachment_file_id:
+          nullable: true
+          type: string
+          format: uuid
+        attachment_note:
+          nullable: true
+          type: string
+          maxLength: 255
         approval_employee_id:
           nullable: true
           type: string
@@ -2401,6 +2412,7 @@ components:
         - employee_id
         - date_start
         - date_end
+        - part
         - status
         - metadata
       properties:
@@ -2420,6 +2432,16 @@ components:
           nullable: true
           type: string
           maxLength: 1000
+        part:
+          type: string
+        attachment_file_id:
+          nullable: true
+          type: string
+          format: uuid
+        attachment_note:
+          nullable: true
+          type: string
+          maxLength: 255
         approval_employee_id:
           nullable: true
           type: string
@@ -2444,6 +2466,7 @@ components:
         - employee_id
         - date_start
         - date_end
+        - part
         - status
         - metadata
       properties:
@@ -2463,6 +2486,16 @@ components:
           nullable: true
           type: string
           maxLength: 1000
+        part:
+          type: string
+        attachment_file_id:
+          nullable: true
+          type: string
+          format: uuid
+        attachment_note:
+          nullable: true
+          type: string
+          maxLength: 255
         approval_employee_id:
           nullable: true
           type: string
@@ -2499,6 +2532,16 @@ components:
           nullable: true
           type: string
           maxLength: 1000
+        part:
+          type: string
+        attachment_file_id:
+          nullable: true
+          type: string
+          format: uuid
+        attachment_note:
+          nullable: true
+          type: string
+          maxLength: 255
         approval_employee_id:
           nullable: true
           type: string

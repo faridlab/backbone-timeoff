@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
 
+use super::LeavePart;
 use super::TimeoffRequestStatus;
 use super::AuditMetadata;
 
@@ -55,6 +56,9 @@ pub struct TimeoffRequest {
     pub date_start: NaiveDate,
     pub date_end: NaiveDate,
     pub note: Option<String>,
+    pub part: LeavePart,
+    pub attachment_file_id: Option<Uuid>,
+    pub attachment_note: Option<String>,
     pub approval_employee_id: Option<Uuid>,
     pub approval_request_id: Option<Uuid>,
     pub note_reject: Option<String>,
@@ -71,7 +75,7 @@ impl TimeoffRequest {
     }
 
     /// Create a new TimeoffRequest with required fields
-    pub fn new(timeoff_type_id: Uuid, employee_id: Uuid, date_start: NaiveDate, date_end: NaiveDate, status: TimeoffRequestStatus) -> Self {
+    pub fn new(timeoff_type_id: Uuid, employee_id: Uuid, date_start: NaiveDate, date_end: NaiveDate, part: LeavePart, status: TimeoffRequestStatus) -> Self {
         Self {
             id: Uuid::new_v4(),
             timeoff_type_id,
@@ -79,6 +83,9 @@ impl TimeoffRequest {
             date_start,
             date_end,
             note: None,
+            part,
+            attachment_file_id: None,
+            attachment_note: None,
             approval_employee_id: None,
             approval_request_id: None,
             note_reject: None,
@@ -153,6 +160,18 @@ impl TimeoffRequest {
         self
     }
 
+    /// Set the attachment_file_id field (chainable)
+    pub fn with_attachment_file_id(mut self, value: Uuid) -> Self {
+        self.attachment_file_id = Some(value);
+        self
+    }
+
+    /// Set the attachment_note field (chainable)
+    pub fn with_attachment_note(mut self, value: String) -> Self {
+        self.attachment_note = Some(value);
+        self
+    }
+
     /// Set the approval_employee_id field (chainable)
     pub fn with_approval_employee_id(mut self, value: Uuid) -> Self {
         self.approval_employee_id = Some(value);
@@ -193,6 +212,15 @@ impl TimeoffRequest {
                 }
                 "note" => {
                     if let Ok(v) = serde_json::from_value(value) { self.note = v; }
+                }
+                "part" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.part = v; }
+                }
+                "attachment_file_id" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.attachment_file_id = v; }
+                }
+                "attachment_note" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.attachment_note = v; }
                 }
                 "approval_employee_id" => {
                     if let Ok(v) = serde_json::from_value(value) { self.approval_employee_id = v; }
@@ -262,8 +290,10 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
         m.insert("id".to_string(), "uuid".to_string());
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
+        m.insert("attachment_file_id".to_string(), "uuid".to_string());
         m.insert("approval_employee_id".to_string(), "uuid".to_string());
         m.insert("approval_request_id".to_string(), "uuid".to_string());
+        m.insert("part".to_string(), "leave_part".to_string());
         m.insert("status".to_string(), "timeoff_request_status".to_string());
         m
     }
@@ -283,6 +313,9 @@ pub struct TimeoffRequestBuilder {
     date_start: Option<NaiveDate>,
     date_end: Option<NaiveDate>,
     note: Option<String>,
+    part: Option<LeavePart>,
+    attachment_file_id: Option<Uuid>,
+    attachment_note: Option<String>,
     approval_employee_id: Option<Uuid>,
     approval_request_id: Option<Uuid>,
     note_reject: Option<String>,
@@ -317,6 +350,24 @@ impl TimeoffRequestBuilder {
     /// Set the note field (optional)
     pub fn note(mut self, value: String) -> Self {
         self.note = Some(value);
+        self
+    }
+
+    /// Set the part field (default: `LeavePart::default()`)
+    pub fn part(mut self, value: LeavePart) -> Self {
+        self.part = Some(value);
+        self
+    }
+
+    /// Set the attachment_file_id field (optional)
+    pub fn attachment_file_id(mut self, value: Uuid) -> Self {
+        self.attachment_file_id = Some(value);
+        self
+    }
+
+    /// Set the attachment_note field (optional)
+    pub fn attachment_note(mut self, value: String) -> Self {
+        self.attachment_note = Some(value);
         self
     }
 
@@ -360,6 +411,9 @@ impl TimeoffRequestBuilder {
             date_start,
             date_end,
             note: self.note,
+            part: self.part.unwrap_or_default(),
+            attachment_file_id: self.attachment_file_id,
+            attachment_note: self.attachment_note,
             approval_employee_id: self.approval_employee_id,
             approval_request_id: self.approval_request_id,
             note_reject: self.note_reject,

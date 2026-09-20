@@ -122,6 +122,7 @@ impl TimeoffRequestWriteService {
         date_from: chrono::NaiveDate,
         date_to: chrono::NaiveDate,
         settlement: LeaveSettlement,
+        part: String,
     ) {
         // The emitted event still carries the legacy twin for its consumers; read it here rather
         // than having every caller fetch it and pass it back in.
@@ -130,6 +131,7 @@ impl TimeoffRequestWriteService {
             company_id,
             request_id,
             employee_id,
+            part,
             date_from,
             date_to,
             settlement,
@@ -152,6 +154,31 @@ impl TimeoffRequestWriteService {
         date_end: chrono::NaiveDate,
         note: Option<String>,
     ) -> Result<Uuid, TimeoffError> {
+        self.submit_request_part(
+            timeoff_type_id, employee_id, date_start, date_end, note, "full", None, None,
+        )
+        .await
+    }
+
+    /// The half-day/attachment-aware submit: `part` is am/pm ONLY on a
+    /// single-day ask (the DB CHECK backstops multi-day halves); the
+    /// certificate rides as a bucket file reference.
+    pub async fn submit_request_part(
+        &self,
+        timeoff_type_id: Uuid,
+        employee_id: Uuid,
+        date_start: chrono::NaiveDate,
+        date_end: chrono::NaiveDate,
+        note: Option<String>,
+        part: &'static str,
+        attachment_file_id: Option<Uuid>,
+        attachment_note: Option<String>,
+    ) -> Result<Uuid, TimeoffError> {
+        if part != "full" && date_start != date_end {
+            return Err(TimeoffError::InvalidState(
+                "a half day (am/pm) is expressible only on a single-day request",
+            ));
+        }
         // The approvals books on the far side still key on a company; read it here rather than
         // having every caller fetch it and pass it back in.
         let company_id = Self::legacy_company_id()?;
@@ -168,7 +195,11 @@ impl TimeoffRequestWriteService {
             timeoff_type_id,
             date_start,
             date_end,
-            days: chrono_days_inclusive(date_start, date_end),
+            days: if part == "full" {
+                chrono_days_inclusive(date_start, date_end)
+            } else {
+                rust_decimal::Decimal::new(5, 1)
+            },
             note: note.clone(),
             submitted_at: Utc::now(),
         };
@@ -195,6 +226,9 @@ impl TimeoffRequestWriteService {
             date_start,
             date_end,
             note,
+            part,
+            attachment_file_id,
+            attachment_note,
             approval_request_id,
         };
         let inserted = self.requests.insert_pending(&mut tx, &draft).await?;
@@ -230,6 +264,11 @@ impl TimeoffRequestWriteService {
         let employee_id = app.employee_id;
         let timeoff_type_id = app.timeoff_type_id;
         let days = app.days;
+        let part: &'static str = match app.part.as_str() {
+            "am" => "am",
+            "pm" => "pm",
+            _ => "full",
+        };
         let date_start = app.date_start;
         let date_end = app.date_end;
 
@@ -291,7 +330,7 @@ impl TimeoffRequestWriteService {
             if days.is_zero() { LeaveSettlement::Voided } else { LeaveSettlement::Approved };
         // The event seam still keys on a company (the leave consumers): source the legacy twin
         // off the ambient org scope, fail-closed.
-        self.settle(timeoff_request_id, employee_id, date_start, date_end, settlement);
+        self.settle(timeoff_request_id, employee_id, date_start, date_end, settlement, part.to_string());
         Ok(())
     }
 
@@ -311,6 +350,7 @@ impl TimeoffRequestWriteService {
             row.date_start,
             row.date_end,
             LeaveSettlement::Refused,
+            "full".into(),
         );
         Ok(())
     }
@@ -340,6 +380,7 @@ impl TimeoffRequestWriteService {
                 app.date_start,
                 app.date_end,
                 LeaveSettlement::Cancelled,
+                "full".into(),
             );
             return Ok(());
         }
@@ -385,6 +426,7 @@ impl TimeoffRequestWriteService {
             app.date_start,
             app.date_end,
             LeaveSettlement::Cancelled,
+            "full".into(),
         );
         Ok(())
     }

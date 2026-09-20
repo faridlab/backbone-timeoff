@@ -16,6 +16,7 @@ pub type TimeoffRequestValidator = EntityValidator<TimeoffRequest>;
 pub fn timeoff_request_validator() -> TimeoffRequestValidator {
     EntityValidator::new()
         .rule(OptionalNotBlank::new("note", |e: &TimeoffRequest| e.note.as_deref()))
+        .rule(OptionalNotBlank::new("attachment_note", |e: &TimeoffRequest| e.attachment_note.as_deref()))
         .rule(OptionalNotBlank::new("note_reject", |e: &TimeoffRequest| e.note_reject.as_deref()))
     // <<< CUSTOM RULES
     // END CUSTOM RULES

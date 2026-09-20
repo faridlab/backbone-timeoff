@@ -39,6 +39,21 @@ models:
         type: string?
         attributes: ["@max(1000)"]
         description: "Applicant note (free-text)"
+
+      part:
+        type: LeavePart
+        attributes: ["@required", "@default(full)"]
+        description: "Which part of the day is taken — full by default; a half day (am/pm) is expressible on a single-day request, and the timesheet row it mints carries the matching hours"
+
+      attachment_file_id:
+        type: uuid?
+        attributes: ["@exclude_from_foreign_key_check"]
+        description: "The certificate/sick note on file (bucket file ref) — sick leave past two days needs one, not a free-text note"
+
+      attachment_note:
+        type: string?
+        attributes: ["@max(255)"]
+        description: "What the attachment is (e.g. 'surat dokter 3 hari')"
       approval_employee_id:
         type: uuid?
         attributes: ["@exclude_from_foreign_key_check"]
@@ -64,6 +79,16 @@ models:
         fields: [status]
 
 enums:
+  - name: LeavePart
+    description: "Which part of the day the leave covers."
+    variants:
+      - name: full
+        default: true
+        description: "The whole day"
+      - name: am
+        description: "The morning only (single-day requests)"
+      - name: pm
+        description: "The afternoon only (single-day requests)"
   - name: TimeoffRequestStatus
     description: "Timeoff request lifecycle"
     variants:

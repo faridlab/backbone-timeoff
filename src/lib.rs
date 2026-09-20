@@ -38,6 +38,9 @@ pub use application::service::TimeoffBalanceService;
 pub use application::service::TimeoffRequestService;
 pub use application::service::TimeoffTypeService;
 
+// Re-exports - Validation
+pub use application::validator::{ValidationError, ValidationResult};
+
 // Re-exports - Workflows
 pub use application::workflows::*;
 

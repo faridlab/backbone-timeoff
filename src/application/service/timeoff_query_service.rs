@@ -164,6 +164,9 @@ fn timeoff_request_to_dto(e: TimeoffRequest) -> Result<TimeoffRequestDto> {
         date_start: e.date_start,
         date_end: e.date_end,
         note: e.note,
+        part: e.part,
+        attachment_file_id: e.attachment_file_id,
+        attachment_note: e.attachment_note,
         approval_employee_id: e.approval_employee_id,
         // The approvals seam link (Wave 1 P1, H-2).
         approval_request_id: e.approval_request_id,

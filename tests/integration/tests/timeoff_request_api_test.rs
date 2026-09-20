@@ -5,11 +5,11 @@
 //! Tests the TimeoffRequest CRUD API endpoints.
 
 use chrono::Utc;
+use crate::integration::framework::ApiTest;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
 use super::crud_test_base::{CrudTestConfig, GenericCrudTest, TestDataGenerator};
-use crate::integration::framework::ApiTest;
 use crate::integration::helpers::CommonUtils;
 
 // ============================================================================
@@ -21,7 +21,6 @@ pub struct TimeoffRequestTestData;
 
 impl TestDataGenerator for TimeoffRequestTestData {
     fn generate_create_payload(&self, _utils: &CommonUtils) -> Value {
-        let now = Utc::now().to_rfc3339();
         json!({
             "id": Uuid::new_v4().to_string(),
             "timeoff_type_id": Uuid::new_v4().to_string(),
@@ -29,6 +28,9 @@ impl TestDataGenerator for TimeoffRequestTestData {
             "date_start": Utc::now().format("%Y-%m-%d").to_string(),
             "date_end": Utc::now().format("%Y-%m-%d").to_string(),
             "note": null,
+            "part": "full",
+            "attachment_file_id": null,
+            "attachment_note": null,
             "approval_employee_id": null,
             "approval_request_id": null,
             "note_reject": null,
@@ -38,7 +40,6 @@ impl TestDataGenerator for TimeoffRequestTestData {
     }
 
     fn generate_update_payload(&self, id: &str, _utils: &CommonUtils) -> Value {
-        let now = Utc::now().to_rfc3339();
         json!({
             "id": id,
             "timeoff_type_id": Uuid::new_v4().to_string(),
@@ -46,6 +47,9 @@ impl TestDataGenerator for TimeoffRequestTestData {
             "date_start": Utc::now().format("%Y-%m-%d").to_string(),
             "date_end": Utc::now().format("%Y-%m-%d").to_string(),
             "note": null,
+            "part": "full",
+            "attachment_file_id": null,
+            "attachment_note": null,
             "approval_employee_id": null,
             "approval_request_id": null,
             "note_reject": null,

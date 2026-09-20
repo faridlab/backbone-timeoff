@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use anyhow::Result;
 use uuid::Uuid;
 
-use crate::domain::entity::{TimeoffRequest, TimeoffRequestStatus};
+use crate::domain::entity::{TimeoffRequest, LeavePart, TimeoffRequestStatus};
 
 /// Pagination parameters for list queries
 #[derive(Debug, Clone, Default)]
@@ -47,6 +47,9 @@ pub struct TimeoffRequestFilter {
     pub timeoff_type_id: Option<Uuid>,
     pub employee_id: Option<Uuid>,
     pub note: Option<String>,
+    pub part: Option<LeavePart>,
+    pub attachment_file_id: Option<Uuid>,
+    pub attachment_note: Option<String>,
     pub approval_employee_id: Option<Uuid>,
     pub approval_request_id: Option<Uuid>,
     pub note_reject: Option<String>,
@@ -56,7 +59,7 @@ pub struct TimeoffRequestFilter {
 impl TimeoffRequestFilter {
     /// Check if any filter is set
     pub fn has_filters(&self) -> bool {
-        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
+        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.note.is_some() || self.part.is_some() || self.attachment_file_id.is_some() || self.attachment_note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
     }
 }
 

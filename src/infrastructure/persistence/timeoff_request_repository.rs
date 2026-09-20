@@ -56,6 +56,8 @@ pub struct TimeoffApprovalRow {
     pub days: Decimal,
     pub date_start: NaiveDate,
     pub date_end: NaiveDate,
+    /// Which part of the day (full/am/pm) — the settlement event carries it.
+    pub part: String,
     pub status: String,
     pub is_paid: bool,
     /// The approvals seam link (Wave 1 P1): set when the request was filed with
@@ -93,6 +95,11 @@ pub struct TimeoffRequestDraft {
     pub date_start: NaiveDate,
     pub date_end: NaiveDate,
     pub note: Option<String>,
+    /// Which part of the day (full by default; am/pm only on single-day asks).
+    pub part: &'static str,
+    /// The certificate/sick note on file (bucket file ref).
+    pub attachment_file_id: Option<Uuid>,
+    pub attachment_note: Option<String>,
     /// Set when a wired `ApprovalFiling` port already filed the approval.
     pub approval_request_id: Option<Uuid>,
 }
@@ -180,8 +187,9 @@ impl TimeoffRequestRepository {
             pool,
             sqlx::query(
                 r#"SELECT tr.employee_id, tr.timeoff_type_id,
-                          (tr.date_end - tr.date_start + 1)::numeric AS days,
-                          tr.date_start, tr.date_end, tr.status::text AS status, tt.is_paid,
+                          CASE WHEN tr.part = 'full' THEN (tr.date_end - tr.date_start + 1)
+                           ELSE 0.5 END::numeric AS days,
+                          tr.date_start, tr.date_end, tr.part::text AS part, tr.status::text AS status, tt.is_paid,
                           tr.approval_request_id
                    FROM timeoff.timeoff_requests tr
                    JOIN timeoff.timeoff_types tt ON tt.id = tr.timeoff_type_id
@@ -194,6 +202,7 @@ impl TimeoffRequestRepository {
             employee_id: r.get("employee_id"),
             timeoff_type_id: r.get("timeoff_type_id"), days: r.get("days"),
             date_start: r.get("date_start"), date_end: r.get("date_end"),
+            part: r.get("part"),
             status: r.get("status"), is_paid: r.get("is_paid"),
             approval_request_id: r.get("approval_request_id"),
         }))
@@ -265,7 +274,8 @@ impl TimeoffRequestRepository {
             pool,
             sqlx::query(
                 r#"SELECT employee_id, timeoff_type_id,
-                          (date_end - date_start + 1)::numeric AS days,
+                          CASE WHEN part = 'full' THEN (date_end - date_start + 1)
+                           ELSE 0.5 END::numeric AS days,
                           date_start, date_end, status::text AS status
                    FROM timeoff.timeoff_requests
                    WHERE id=$1 AND (metadata->>'deleted_at') IS NULL"#,
@@ -330,8 +340,10 @@ impl TimeoffRequestRepository {
         let done = sqlx::query(
             r#"INSERT INTO timeoff.timeoff_requests
                    (id, timeoff_type_id, employee_id,
-                    date_start, date_end, note, approval_request_id, status)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending'::timeoff_request_status)"#,
+                    date_start, date_end, note, part, attachment_file_id, attachment_note,
+                    approval_request_id, status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7::leave_part, $8, $9,
+                       $10, 'pending'::timeoff_request_status)"#,
         )
         .bind(d.id)
         .bind(d.timeoff_type_id)
@@ -339,6 +351,9 @@ impl TimeoffRequestRepository {
         .bind(d.date_start)
         .bind(d.date_end)
         .bind(&d.note)
+        .bind(d.part)
+        .bind(d.attachment_file_id)
+        .bind(d.attachment_note.as_deref())
         .bind(d.approval_request_id)
         .execute(conn)
         .await?;

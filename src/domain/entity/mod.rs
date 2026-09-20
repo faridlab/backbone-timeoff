@@ -10,6 +10,7 @@ pub mod timeoff_type;
 pub mod accrual_frequency;
 pub mod accrual_start_type;
 pub mod accrual_lost_days_action;
+pub mod leave_part;
 pub mod timeoff_request_status;
 
 // Re-exports
@@ -31,6 +32,7 @@ pub use timeoff_type::TimeoffTypeId;
 pub use accrual_frequency::AccrualFrequency;
 pub use accrual_start_type::AccrualStartType;
 pub use accrual_lost_days_action::AccrualLostDaysAction;
+pub use leave_part::LeavePart;
 pub use timeoff_request_status::TimeoffRequestStatus;
 
 // ==========================================================================

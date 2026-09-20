@@ -42,6 +42,9 @@ pub struct LeaveSettled {
     pub date_from: NaiveDate,
     pub date_to: NaiveDate,
     pub settlement: LeaveSettlement,
+    /// Which part of the day the leave covers (full/am/pm) — the timesheet
+    /// minting halves the day row for a half.
+    pub part: String,
 }
 
 /// The timeoff domain-event union.

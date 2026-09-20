@@ -18,6 +18,7 @@ use validator::Validate;
 
 use crate::domain::entity::TimeoffRequest;
 use crate::domain::entity::AuditMetadata;
+use crate::domain::entity::LeavePart;
 use crate::domain::entity::TimeoffRequestStatus;
 
 // =============================================================================
@@ -48,6 +49,12 @@ pub struct CreateTimeoffRequestDto {
     #[cfg_attr(feature = "validation", validate(length(max = 1000)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    pub part: LeavePart,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "attachment_file_id")]
+    pub attachment_file_id: Option<Uuid>,
+    #[cfg_attr(feature = "validation", validate(length(max = 255)))]
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "attachment_note")]
+    pub attachment_note: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_employee_id")]
     pub approval_employee_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_request_id")]
@@ -86,6 +93,12 @@ pub struct UpdateTimeoffRequestDto {
     #[cfg_attr(feature = "validation", validate(length(max = 1000)))]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    pub part: LeavePart,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "attachment_file_id")]
+    pub attachment_file_id: Option<Uuid>,
+    #[cfg_attr(feature = "validation", validate(length(max = 255)))]
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "attachment_note")]
+    pub attachment_note: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_employee_id")]
     pub approval_employee_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "approval_request_id")]
@@ -124,6 +137,13 @@ pub struct PatchTimeoffRequestDto {
     #[cfg_attr(feature = "validation", validate(length(max = 1000)))]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub part: Option<LeavePart>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "attachment_file_id")]
+    pub attachment_file_id: Option<Uuid>,
+    #[cfg_attr(feature = "validation", validate(length(max = 255)))]
+    #[serde(skip_serializing_if = "Option::is_none", alias = "attachment_note")]
+    pub attachment_note: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "approval_employee_id")]
     pub approval_employee_id: Option<Uuid>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "approval_request_id")]
@@ -138,7 +158,7 @@ pub struct PatchTimeoffRequestDto {
 impl PatchTimeoffRequestDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.date_start.is_some() || self.date_end.is_some() || self.note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
+        self.timeoff_type_id.is_some() || self.employee_id.is_some() || self.date_start.is_some() || self.date_end.is_some() || self.note.is_some() || self.part.is_some() || self.attachment_file_id.is_some() || self.attachment_note.is_some() || self.approval_employee_id.is_some() || self.approval_request_id.is_some() || self.note_reject.is_some() || self.status.is_some()
     }
 }
 
@@ -165,6 +185,9 @@ pub struct TimeoffRequestResponseDto {
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
     pub date_end: NaiveDate,
     pub note: Option<String>,
+    pub part: LeavePart,
+    pub attachment_file_id: Option<Uuid>,
+    pub attachment_note: Option<String>,
     pub approval_employee_id: Option<Uuid>,
     pub approval_request_id: Option<Uuid>,
     pub note_reject: Option<String>,
@@ -245,6 +268,9 @@ impl From<TimeoffRequest> for TimeoffRequestResponseDto {
             date_start: entity.date_start,
             date_end: entity.date_end,
             note: entity.note,
+            part: entity.part,
+            attachment_file_id: entity.attachment_file_id,
+            attachment_note: entity.attachment_note,
             approval_employee_id: entity.approval_employee_id,
             approval_request_id: entity.approval_request_id,
             note_reject: entity.note_reject,
@@ -276,6 +302,9 @@ impl From<CreateTimeoffRequestDto> for TimeoffRequest {
             date_start: dto.date_start,
             date_end: dto.date_end,
             note: dto.note,
+            part: dto.part,
+            attachment_file_id: dto.attachment_file_id,
+            attachment_note: dto.attachment_note,
             approval_employee_id: dto.approval_employee_id,
             approval_request_id: dto.approval_request_id,
             note_reject: dto.note_reject,
@@ -294,6 +323,9 @@ impl From<&TimeoffRequest> for TimeoffRequestResponseDto {
             date_start: entity.date_start.clone(),
             date_end: entity.date_end.clone(),
             note: entity.note.clone(),
+            part: entity.part.clone(),
+            attachment_file_id: entity.attachment_file_id.clone(),
+            attachment_note: entity.attachment_note.clone(),
             approval_employee_id: entity.approval_employee_id.clone(),
             approval_request_id: entity.approval_request_id.clone(),
             note_reject: entity.note_reject.clone(),
@@ -316,6 +348,9 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffRequestDto> for TimeoffRequest {
         self.date_start = dto.date_start;
         self.date_end = dto.date_end;
         self.note = dto.note;
+        self.part = dto.part;
+        self.attachment_file_id = dto.attachment_file_id;
+        self.attachment_note = dto.attachment_note;
         self.approval_employee_id = dto.approval_employee_id;
         self.approval_request_id = dto.approval_request_id;
         self.note_reject = dto.note_reject;
