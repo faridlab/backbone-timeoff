@@ -53,6 +53,15 @@ pub struct SubmitBody {
     date_end: chrono::NaiveDate,
     #[serde(default)]
     note: Option<String>,
+    /// Which part of the day: "full" (default) | "am" | "pm" — am/pm only on
+    /// a single-day ask.
+    #[serde(default)]
+    part: Option<String>,
+    /// The certificate/sick note on file (bucket file ref).
+    #[serde(default)]
+    attachment_file_id: Option<Uuid>,
+    #[serde(default)]
+    attachment_note: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -79,8 +88,32 @@ async fn submit(
     _org: OrgContext,
     Json(b): Json<SubmitBody>,
 ) -> Response {
+    let part: &'static str = match b.part.as_deref() {
+        None | Some("full") => "full",
+        Some("am") => "am",
+        Some("pm") => "pm",
+        Some(_) => {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({
+                    "error": "bad_part",
+                    "message": "part must be one of: full, am, pm"
+                })),
+            )
+                .into_response()
+        }
+    };
     match svc
-        .submit_request(b.timeoff_type_id, b.employee_id, b.date_start, b.date_end, b.note)
+        .submit_request_part(
+            b.timeoff_type_id,
+            b.employee_id,
+            b.date_start,
+            b.date_end,
+            b.note,
+            part,
+            b.attachment_file_id,
+            b.attachment_note,
+        )
         .await
     {
         Ok(id) => (StatusCode::CREATED, Json(json!({ "id": id }))).into_response(),
