@@ -12,6 +12,7 @@ pub mod timeoff_request_handler;
 pub mod timeoff_type_handler;
 
 // <<< CUSTOM
+pub mod verb_routes;
 // END CUSTOM
 
 // Re-exports
@@ -21,4 +22,5 @@ pub use timeoff_balance_handler::{create_timeoff_balance_routes, create_timeoff_
 pub use timeoff_request_handler::{create_timeoff_request_routes, create_timeoff_request_read_routes, create_timeoff_request_write_routes};
 pub use timeoff_type_handler::{create_timeoff_type_routes, create_timeoff_type_read_routes, create_timeoff_type_write_routes};
 // <<< CUSTOM
+pub use verb_routes::create_timeoff_verb_routes;
 // END CUSTOM

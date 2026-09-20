@@ -26,6 +26,9 @@ user_owned:
   # restore). Ported verbatim from backbone-hr's hr_write_service.rs; preserved across regen via the
   # `*_custom.rs` suffix, but listed here for visibility alongside the repos it depends on.
   - "src/application/service/timeoff_request_service_custom.rs"
+  # The leave-lifecycle verb routes (submit/approve/reject/cancel over the
+  # write service above).
+  - "src/presentation/http/verb_routes.rs"
   # The leave-lifecycle event seam: TimeoffEventSink + LeaveSettled (approved / refused /
   # cancelled / voided) published from the write path's settling verbs — the signal the timesheet
   # leave-row regeneration and payroll settlement consume.
