@@ -295,6 +295,10 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
         m.insert("approval_request_id".to_string(), "uuid".to_string());
         m.insert("part".to_string(), "leave_part".to_string());
         m.insert("status".to_string(), "timeoff_request_status".to_string());
+        // Temporal cast hints: without them a filter like date_start[gte]=…
+        // binds text and Postgres has no implicit `date >= text` operator.
+        m.insert("date_start".to_string(), "date".to_string());
+        m.insert("date_end".to_string(), "date".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {
