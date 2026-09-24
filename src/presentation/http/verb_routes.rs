@@ -80,7 +80,36 @@ pub fn create_timeoff_verb_routes(svc: Arc<TimeoffRequestWriteService>) -> Route
         .route("/requests/:request_id/approve", post(approve))
         .route("/requests/:request_id/reject", post(reject))
         .route("/requests/:request_id/cancel", post(cancel))
+        .route("/balances/adjust", post(adjust_balance))
         .with_state(svc)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdjustBalanceBody {
+    employee_id: Uuid,
+    timeoff_type_id: Uuid,
+    /// The period (year) the allocation belongs to; defaults to the current year.
+    #[serde(default)]
+    period: Option<String>,
+    /// Signed days: positive grants, negative claws back (a half day is 0.5).
+    delta: rust_decimal::Decimal,
+    /// REQUIRED — the audit trail names why the number moved.
+    reason: String,
+}
+
+async fn adjust_balance(
+    State(svc): State<Arc<TimeoffRequestWriteService>>,
+    _org: OrgContext,
+    Json(b): Json<AdjustBalanceBody>,
+) -> Response {
+    match svc
+        .adjust_balance(b.employee_id, b.timeoff_type_id, b.period, b.delta, b.reason)
+        .await
+    {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(e) => err_response(e),
+    }
 }
 
 async fn submit(

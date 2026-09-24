@@ -34,6 +34,11 @@ models:
         type: boolean
         attributes: ["@default(false)"]
         description: "Carry unused balance to next period"
+
+      max_days_per_request:
+        type: decimal?
+        attributes: ["@precision(8,2)"]
+        description: "The ceiling one request of this type may ask for, in days (a half day is 0.5). NULL = no per-request cap; the balance is still the hard floor. Enforced at submit."
       metadata:
         type: Metadata
         attributes: ["@audit_metadata"]

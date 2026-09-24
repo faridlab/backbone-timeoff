@@ -183,6 +183,7 @@ fn timeoff_type_to_dto(e: TimeoffType) -> Result<TimeoffTypeDto> {
         code: e.code,
         is_paid: e.is_paid,
         allow_carry_forward: e.allow_carry_forward,
+        max_days_per_request: e.max_days_per_request,
         metadata: serde_json::to_value(&e.metadata)?,
     })
 }

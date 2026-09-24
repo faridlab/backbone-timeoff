@@ -273,12 +273,6 @@ impl backbone_orm::EntityRepoMeta for TimeoffBalance {
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("accrual_plan_id".to_string(), "uuid".to_string());
-        // Temporal cast hints: without them a filter binds text and Postgres
-        // has no implicit temporal-vs-text operator.
-        m.insert("date_from".to_string(), "date".to_string());
-        m.insert("date_to".to_string(), "date".to_string());
-        m.insert("last_accrual_at".to_string(), "timestamptz".to_string());
-        m.insert("expired_at".to_string(), "timestamptz".to_string());
         m
     }
     fn search_fields() -> &'static [&'static str] {

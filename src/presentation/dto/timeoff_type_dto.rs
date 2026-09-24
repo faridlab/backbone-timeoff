@@ -8,6 +8,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 
 #[cfg(feature = "openapi")]
 #[cfg(feature = "openapi")]
@@ -44,6 +45,8 @@ pub struct CreateTimeoffTypeDto {
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(alias = "allow_carry_forward")]
     pub allow_carry_forward: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "max_days_per_request")]
+    pub max_days_per_request: Option<Decimal>,
 }
 
 // =============================================================================
@@ -71,6 +74,8 @@ pub struct UpdateTimeoffTypeDto {
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(alias = "allow_carry_forward")]
     pub allow_carry_forward: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none", alias = "max_days_per_request")]
+    pub max_days_per_request: Option<Decimal>,
 }
 
 // =============================================================================
@@ -99,12 +104,14 @@ pub struct PatchTimeoffTypeDto {
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "allow_carry_forward")]
     pub allow_carry_forward: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none", alias = "max_days_per_request")]
+    pub max_days_per_request: Option<Decimal>,
 }
 
 impl PatchTimeoffTypeDto {
     /// Check if any field is set
     pub fn has_changes(&self) -> bool {
-        self.name.is_some() || self.code.is_some() || self.is_paid.is_some() || self.allow_carry_forward.is_some()
+        self.name.is_some() || self.code.is_some() || self.is_paid.is_some() || self.allow_carry_forward.is_some() || self.max_days_per_request.is_some()
     }
 }
 
@@ -129,6 +136,7 @@ pub struct TimeoffTypeResponseDto {
     pub is_paid: bool,
     #[cfg_attr(feature = "openapi", schema(example = true))]
     pub allow_carry_forward: bool,
+    pub max_days_per_request: Option<Decimal>,
     pub metadata: AuditMetadata,
 }
 
@@ -204,6 +212,7 @@ impl From<TimeoffType> for TimeoffTypeResponseDto {
             code: entity.code,
             is_paid: entity.is_paid,
             allow_carry_forward: entity.allow_carry_forward,
+            max_days_per_request: entity.max_days_per_request,
             metadata: entity.metadata,
         }
     }
@@ -230,6 +239,7 @@ impl From<CreateTimeoffTypeDto> for TimeoffType {
             code: dto.code,
             is_paid: dto.is_paid,
             allow_carry_forward: dto.allow_carry_forward,
+            max_days_per_request: dto.max_days_per_request,
             metadata: AuditMetadata::default(),
         }
     }
@@ -243,6 +253,7 @@ impl From<&TimeoffType> for TimeoffTypeResponseDto {
             code: entity.code.clone(),
             is_paid: entity.is_paid.clone(),
             allow_carry_forward: entity.allow_carry_forward.clone(),
+            max_days_per_request: entity.max_days_per_request.clone(),
             metadata: entity.metadata.clone(),
         }
     }
@@ -260,6 +271,7 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffTypeDto> for TimeoffType {
         self.code = dto.code;
         self.is_paid = dto.is_paid;
         self.allow_carry_forward = dto.allow_carry_forward;
+        self.max_days_per_request = dto.max_days_per_request;
         Ok(self)
     }
 }

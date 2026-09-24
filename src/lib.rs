@@ -146,6 +146,29 @@ impl TimeoffModule {
     }
 
     // <<< CUSTOM METHODS
+    /// The leave ADMIN surface: generic writes for the master data HR owns
+    /// (types, accrual plans, accrual levels) — the read-only base plus these
+    /// is what a real deployment mounts for policy management. Balances and
+    /// requests stay OFF this surface: balances move through the audited
+    /// adjust verb on the write service, requests through its lifecycle verbs.
+    pub fn admin_routes(&self) -> Router {
+        use presentation::http::{
+            create_timeoff_accrual_level_write_routes, create_timeoff_accrual_plan_write_routes,
+            create_timeoff_type_write_routes,
+        };
+
+        self.readonly_routes()
+            .merge(create_timeoff_type_write_routes(
+                self.timeoff_type_service.clone(),
+            ))
+            .merge(create_timeoff_accrual_plan_write_routes(
+                self.timeoff_accrual_plan_service.clone(),
+            ))
+            .merge(create_timeoff_accrual_level_write_routes(
+                self.timeoff_accrual_level_service.clone(),
+            ))
+    }
+
     /// The module-held validated write path (request verbs + the approvals seam).
     pub fn timeoff_write_service(&self) -> Arc<application::service::TimeoffRequestWriteService> {
         self.timeoff_write_service.clone()

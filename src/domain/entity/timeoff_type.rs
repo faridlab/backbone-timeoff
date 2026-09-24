@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
+use rust_decimal::Decimal;
 use super::AuditMetadata;
 
 /// Strongly-typed ID for TimeoffType
@@ -52,6 +53,7 @@ pub struct TimeoffType {
     pub code: Option<String>,
     pub is_paid: bool,
     pub allow_carry_forward: bool,
+    pub max_days_per_request: Option<Decimal>,
     #[serde(default)]
     #[sqlx(json)]
     pub metadata: AuditMetadata,
@@ -71,6 +73,7 @@ impl TimeoffType {
             code: None,
             is_paid,
             allow_carry_forward,
+            max_days_per_request: None,
             metadata: AuditMetadata::default(),
         }
     }
@@ -136,6 +139,12 @@ impl TimeoffType {
         self
     }
 
+    /// Set the max_days_per_request field (chainable)
+    pub fn with_max_days_per_request(mut self, value: Decimal) -> Self {
+        self.max_days_per_request = Some(value);
+        self
+    }
+
     // ==========================================================
     // Partial Update
     // ==========================================================
@@ -155,6 +164,9 @@ impl TimeoffType {
                 }
                 "allow_carry_forward" => {
                     if let Ok(v) = serde_json::from_value(value) { self.allow_carry_forward = v; }
+                }
+                "max_days_per_request" => {
+                    if let Ok(v) = serde_json::from_value(value) { self.max_days_per_request = v; }
                 }
                 _ => {} // ignore unknown fields
             }
@@ -227,6 +239,7 @@ pub struct TimeoffTypeBuilder {
     code: Option<String>,
     is_paid: Option<bool>,
     allow_carry_forward: Option<bool>,
+    max_days_per_request: Option<Decimal>,
 }
 
 impl TimeoffTypeBuilder {
@@ -254,6 +267,12 @@ impl TimeoffTypeBuilder {
         self
     }
 
+    /// Set the max_days_per_request field (optional)
+    pub fn max_days_per_request(mut self, value: Decimal) -> Self {
+        self.max_days_per_request = Some(value);
+        self
+    }
+
     /// Build the TimeoffType entity
     ///
     /// Returns Err if any required field without a default is missing.
@@ -266,6 +285,7 @@ impl TimeoffTypeBuilder {
             code: self.code,
             is_paid: self.is_paid.unwrap_or(true),
             allow_carry_forward: self.allow_carry_forward.unwrap_or(false),
+            max_days_per_request: self.max_days_per_request,
             metadata: AuditMetadata::default(),
         })
     }

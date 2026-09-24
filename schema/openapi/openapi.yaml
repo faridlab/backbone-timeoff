@@ -2592,6 +2592,9 @@ components:
           type: boolean
         allow_carry_forward:
           type: boolean
+        max_days_per_request:
+          nullable: true
+          type: string
         metadata:
           type: object
 
@@ -2627,6 +2630,9 @@ components:
           type: boolean
         allow_carry_forward:
           type: boolean
+        max_days_per_request:
+          nullable: true
+          type: string
         metadata:
           type: object
 
@@ -2649,6 +2655,9 @@ components:
           type: boolean
         allow_carry_forward:
           type: boolean
+        max_days_per_request:
+          nullable: true
+          type: string
         metadata:
           type: object
 
@@ -2666,6 +2675,9 @@ components:
           type: boolean
         allow_carry_forward:
           type: boolean
+        max_days_per_request:
+          nullable: true
+          type: string
         metadata:
           type: object
 

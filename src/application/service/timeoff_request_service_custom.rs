@@ -179,12 +179,36 @@ impl TimeoffRequestWriteService {
                 "a half day (am/pm) is expressible only on a single-day request",
             ));
         }
-        // The approvals books on the far side still key on a company; read it here rather than
-        // having every caller fetch it and pass it back in.
-        let company_id = Self::legacy_company_id()?;
-        // The legacy company key the approvals filing keys on (see the tenancy note above).
+        // The approvals books on the far side still key on a company (the
+        // legacy twin of the ambient org unit — see the tenancy note above);
+        // read it here rather than having every caller fetch it and pass it
+        // back in.
         let company_id = Self::legacy_company_id()?;
         let request_id = Uuid::new_v4();
+        // The days this ask consumes: inclusive for a full-day window, half a
+        // day for an am/pm single-day ask.
+        let days = if part == "full" {
+            chrono_days_inclusive(date_start, date_end)
+        } else {
+            rust_decimal::Decimal::new(5, 1)
+        };
+        // The per-request ceiling, when the type carries one. Read before
+        // filing: a refused ask never reaches the engine at all.
+        let cap: Option<rust_decimal::Decimal> = sqlx::query_scalar(
+            r#"SELECT max_days_per_request FROM timeoff.timeoff_types
+                WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
+        )
+        .bind(timeoff_type_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .flatten();
+        if let Some(cap) = cap {
+            if days > cap {
+                return Err(TimeoffError::InvalidState(
+                    "this leave type caps one request below the days asked for — split the ask",
+                ));
+            }
+        }
         // File first (outside any tx — the port is a network call to the
         // approvals side; holding a row lock across it is worse than an orphaned
         // filing on a failed insert, which the H-9 engine's sweeper can reap).
@@ -195,11 +219,7 @@ impl TimeoffRequestWriteService {
             timeoff_type_id,
             date_start,
             date_end,
-            days: if part == "full" {
-                chrono_days_inclusive(date_start, date_end)
-            } else {
-                rust_decimal::Decimal::new(5, 1)
-            },
+            days,
             note: note.clone(),
             submitted_at: Utc::now(),
         };
@@ -352,6 +372,114 @@ impl TimeoffRequestWriteService {
             LeaveSettlement::Refused,
             "full".into(),
         );
+        Ok(())
+    }
+
+    /// Adjust an employee's allocation for one type and period, with a reason.
+    ///
+    /// HR's balance lane: grant extra days, correct a seed, or claw back an
+    /// over-grant. The reason is REQUIRED and rides the row's metadata (the
+    /// audit trail answers "why does this balance say 17"), each adjustment
+    /// appended with its delta and timestamp. A downward adjust that would
+    /// push `allocated` below what is already `used` refuses — a balance may
+    /// never read negative any more than the approve gate would allow it.
+    /// The period defaults to the current year when not named.
+    pub async fn adjust_balance(
+        &self,
+        employee_id: Uuid,
+        timeoff_type_id: Uuid,
+        period: Option<String>,
+        delta: rust_decimal::Decimal,
+        reason: String,
+    ) -> Result<(), TimeoffError> {
+        let reason = reason.trim().to_string();
+        if reason.is_empty() {
+            return Err(TimeoffError::InvalidState(
+                "a balance adjustment requires a reason — the audit trail names why the number moved",
+            ));
+        }
+        if delta.is_zero() {
+            return Err(TimeoffError::InvalidState(
+                "a zero adjustment changes nothing; refuse it rather than stamp the audit trail",
+            ));
+        }
+        let period = period.unwrap_or_else(|| Utc::now().format("%Y").to_string());
+
+        let mut tx = self.pool.begin().await?;
+        if let Some(scope) = org_scope::current_org_scope() {
+            org_scope::bind_org_scope_on(&mut tx, &scope).await?;
+        }
+
+        // Find-or-create the balance row under lock: the first adjustment on
+        // a fresh type/period pair mints the row at zero, then applies.
+        let existing: Option<(Uuid, rust_decimal::Decimal, rust_decimal::Decimal)> = sqlx::query_as(
+            r#"SELECT id, allocated, used FROM timeoff.timeoff_balances
+                WHERE employee_id = $1 AND timeoff_type_id = $2 AND period = $3
+                  AND (metadata->>'deleted_at') IS NULL
+                FOR UPDATE"#,
+        )
+        .bind(employee_id)
+        .bind(timeoff_type_id)
+        .bind(&period)
+        .fetch_optional(&mut *tx)
+        .await?;
+        let (balance_id, allocated) = match existing {
+            Some((id, allocated, _used)) => (id, allocated),
+            None => {
+                let id = Uuid::new_v4();
+                sqlx::query(
+                    r#"INSERT INTO timeoff.timeoff_balances
+                           (id, employee_id, timeoff_type_id, period, allocated, used)
+                       VALUES ($1, $2, $3, $4, 0, 0)"#,
+                )
+                .bind(id)
+                .bind(employee_id)
+                .bind(timeoff_type_id)
+                .bind(&period)
+                .execute(&mut *tx)
+                .await?;
+                (id, rust_decimal::Decimal::ZERO)
+            }
+        };
+
+        let new_allocated = allocated + delta;
+        if new_allocated < rust_decimal::Decimal::ZERO {
+            return Err(TimeoffError::InvalidState(
+                "the adjustment would take the allocation below zero",
+            ));
+        }
+        let used: rust_decimal::Decimal = sqlx::query_scalar(
+            r#"SELECT used FROM timeoff.timeoff_balances WHERE id = $1"#,
+        )
+        .bind(balance_id)
+        .fetch_one(&mut *tx)
+        .await?;
+        if new_allocated < used {
+            return Err(TimeoffError::InvalidState(
+                "the adjustment would take the allocation below what is already used —                  the used days must be corrected first",
+            ));
+        }
+
+        sqlx::query(
+            r#"UPDATE timeoff.timeoff_balances
+                  SET allocated = $2,
+                      metadata = jsonb_set(
+                          metadata,
+                          '{adjustments}',
+                          COALESCE(metadata->'adjustments', '[]'::jsonb)
+                          || jsonb_build_array(jsonb_build_object(
+                                 'at', to_jsonb(now()),
+                                 'delta', to_jsonb($3::numeric),
+                                 'reason', to_jsonb($4::text))))
+                WHERE id = $1"#,
+        )
+        .bind(balance_id)
+        .bind(new_allocated)
+        .bind(delta)
+        .bind(&reason)
+        .execute(&mut *tx)
+        .await?;
+        tx.commit().await?;
         Ok(())
     }
 

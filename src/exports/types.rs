@@ -302,6 +302,7 @@ pub struct TimeoffTypeDto {
     pub code: Option<String>,
     pub is_paid: bool,
     pub allow_carry_forward: bool,
+    pub max_days_per_request: Option<Decimal>,
     pub metadata: serde_json::Value,
 }
 

@@ -25,6 +25,7 @@ impl TestDataGenerator for TimeoffTypeTestData {
             "code": null,
             "is_paid": false,
             "allow_carry_forward": false,
+            "max_days_per_request": null,
             "metadata": json!({}),
         })
     }
@@ -36,6 +37,7 @@ impl TestDataGenerator for TimeoffTypeTestData {
             "code": null,
             "is_paid": false,
             "allow_carry_forward": false,
+            "max_days_per_request": null,
             "metadata": json!({}),
         })
     }
