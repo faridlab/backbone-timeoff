@@ -193,15 +193,21 @@ impl TimeoffRequestWriteService {
             rust_decimal::Decimal::new(5, 1)
         };
         // The per-request ceiling, when the type carries one. Read before
-        // filing: a refused ask never reaches the engine at all.
-        let cap: Option<rust_decimal::Decimal> = sqlx::query_scalar(
-            r#"SELECT max_days_per_request FROM timeoff.timeoff_types
-                WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
-        )
-        .bind(timeoff_type_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .flatten();
+        // filing: a refused ask never reaches the engine at all. The read
+        // rides the scoped-fetch twin (request-dedicated connection when the
+        // composing service bound one) — a raw pool read runs unfenced and
+        // the row, with its cap, is simply not there.
+        let cap: Option<rust_decimal::Decimal> =
+            backbone_orm::company_scope::fetch_optional_scoped(
+                &self.pool,
+                sqlx::query_as::<_, (Option<rust_decimal::Decimal>,)>(
+                    r#"SELECT max_days_per_request FROM timeoff.timeoff_types
+                        WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
+                )
+                .bind(timeoff_type_id),
+            )
+            .await?
+            .and_then(|(c,)| c);
         if let Some(cap) = cap {
             if days > cap {
                 return Err(TimeoffError::InvalidState(
