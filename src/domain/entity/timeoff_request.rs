@@ -288,6 +288,11 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
     fn column_types() -> std::collections::HashMap<String, String> {
         let mut m = std::collections::HashMap::new();
         m.insert("id".to_string(), "uuid".to_string());
+        // Temporal cast hints (#587): date filters arrive as text and the
+        // comparison needs an explicit cast; the generator does not emit
+        // temporal hints yet (#519 tracks the plugin-side fix).
+        m.insert("date_start".to_string(), "date".to_string());
+        m.insert("date_end".to_string(), "date".to_string());
         m.insert("timeoff_type_id".to_string(), "uuid".to_string());
         m.insert("employee_id".to_string(), "uuid".to_string());
         m.insert("attachment_file_id".to_string(), "uuid".to_string());
