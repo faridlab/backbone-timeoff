@@ -45,7 +45,7 @@ pub struct CreateTimeoffTypeDto {
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(alias = "allow_carry_forward")]
     pub allow_carry_forward: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "max_days_per_request")]
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "rust_decimal::serde::float_option", alias = "max_days_per_request")]
     pub max_days_per_request: Option<Decimal>,
 }
 
@@ -74,7 +74,7 @@ pub struct UpdateTimeoffTypeDto {
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(alias = "allow_carry_forward")]
     pub allow_carry_forward: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none", alias = "max_days_per_request")]
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "rust_decimal::serde::float_option", alias = "max_days_per_request")]
     pub max_days_per_request: Option<Decimal>,
 }
 

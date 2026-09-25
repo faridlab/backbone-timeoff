@@ -11,6 +11,9 @@
 # Add your hand-authored services, handlers, tests, and docs below as you write them.
 
 user_owned:
+  # carries the float serialization hint on max_days_per_request
+  # (the wire reads 3, not "3.00"); drop once the generator emits it
+  - "src/presentation/dto/timeoff_type_dto.rs"
   # hand-maintained: carries the temporal filter-cast hints until the
   # schema plugin emits them itself (DIT #519)
   - "src/domain/entity/timeoff_request.rs"
