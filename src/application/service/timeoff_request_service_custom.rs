@@ -75,6 +75,12 @@ pub struct TimeoffRequestWriteService {
 }
 
 impl TimeoffRequestWriteService {
+    /// The database this verb runs on: the composer's request pool when the
+    /// tenant router installed one, else the composed pool.
+    fn rpool(&self) -> PgPool {
+        crate::request_pool::current().unwrap_or_else(|| self.pool.clone())
+    }
+
     pub fn new(pool: PgPool) -> Self {
         let requests = TimeoffRequestRepository::new(pool.clone());
         let balances = TimeoffBalanceRepository::new(pool.clone());
@@ -199,7 +205,7 @@ impl TimeoffRequestWriteService {
         // the row, with its cap, is simply not there.
         let cap: Option<rust_decimal::Decimal> =
             backbone_orm::company_scope::fetch_optional_scoped(
-                &self.pool,
+                &self.rpool(),
                 sqlx::query_as::<_, (Option<rust_decimal::Decimal>,)>(
                     r#"SELECT max_days_per_request FROM timeoff.timeoff_types
                         WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
@@ -239,7 +245,7 @@ impl TimeoffRequestWriteService {
             Err(e) => return Err(e.into()),
         };
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         // Relay the AMBIENT org scope (when the caller bound one) so the composing
         // decorator's org-unit fill and row-level fence apply to this insert.
         if let Some(scope) = org_scope::current_org_scope() {
@@ -282,7 +288,7 @@ impl TimeoffRequestWriteService {
         // ID-only read (ADR-0029): identified by the request id alone. It rides the
         // request-dedicated connection when the composing service bound one, so a row its
         // tenancy decorator's fence excludes simply is not found.
-        let app = self.requests.find_for_approval(&self.pool, timeoff_request_id).await?
+        let app = self.requests.find_for_approval(&self.rpool(), timeoff_request_id).await?
             .ok_or(TimeoffError::NotFound("timeoff request"))?;
         if app.status != "pending" {
             return Err(TimeoffError::InvalidState("timeoff request is not pending"));
@@ -325,7 +331,7 @@ impl TimeoffRequestWriteService {
         // `year` (INTEGER); timeoff keys it on `period` (TEXT), so the year is stringified.
         let period = app.date_start.year().to_string();
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         // Relay the AMBIENT org scope (when the caller bound one) so the composing
         // decorator's fence covers the transition + the balance draw.
         if let Some(scope) = org_scope::current_org_scope() {
@@ -365,7 +371,7 @@ impl TimeoffRequestWriteService {
         // ID-only (ADR-0029): no tenant argument — the gated UPDATE rides the request-dedicated
         // connection when one is bound, so the composing decorator's fence decides what is
         // rejectable; another tenant's request is simply not matched.
-        let settled = self.requests.mark_rejected(&self.pool, timeoff_request_id).await?;
+        let settled = self.requests.mark_rejected(&self.rpool(), timeoff_request_id).await?;
         let row = settled.ok_or(TimeoffError::InvalidState("timeoff request is not pending"))?;
         // The event seam still keys on a company (the leave consumers): source the legacy twin
         // off the ambient org scope, fail-closed.
@@ -411,7 +417,7 @@ impl TimeoffRequestWriteService {
         }
         let period = period.unwrap_or_else(|| Utc::now().format("%Y").to_string());
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         if let Some(scope) = org_scope::current_org_scope() {
             org_scope::bind_org_scope_on(&mut tx, &scope).await?;
         }
@@ -497,11 +503,11 @@ impl TimeoffRequestWriteService {
         // ID-only read (ADR-0029): identified by the request id alone. It rides the
         // request-dedicated connection when the composing service bound one, so a row its
         // tenancy decorator's fence excludes simply is not found.
-        let app = self.requests.find_for_cancel(&self.pool, timeoff_request_id).await?
+        let app = self.requests.find_for_cancel(&self.rpool(), timeoff_request_id).await?
             .ok_or(TimeoffError::NotFound("timeoff request"))?;
         let status = app.status.as_str();
         if status == "pending" {
-            let m = self.requests.cancel_pending(&self.pool, timeoff_request_id).await?;
+            let m = self.requests.cancel_pending(&self.rpool(), timeoff_request_id).await?;
             if m != 1 {
                 return Err(TimeoffError::InvalidState("not cancellable"));
             }
@@ -526,7 +532,7 @@ impl TimeoffRequestWriteService {
         let days = app.days;
         let period = app.date_start.year().to_string();
 
-        let mut tx = self.pool.begin().await?;
+        let mut tx = self.rpool().begin().await?;
         // Relay the AMBIENT org scope (when the caller bound one) so the composing
         // decorator's fence covers the transition + the balance restore.
         if let Some(scope) = org_scope::current_org_scope() {
