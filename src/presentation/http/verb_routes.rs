@@ -76,18 +76,20 @@ pub struct ApproveBody {
 /// read surface.
 pub fn create_timeoff_verb_routes(svc: Arc<TimeoffRequestWriteService>) -> Router {
     Router::new()
-        // Bind the composer's request pool (ADR-0029 pool law): under a
-        // tenant mount the verbs write to the tenant's database; without
-        // one the composed pool stays the fallback.
-        .layer(axum::middleware::from_fn(
-            crate::request_pool::bind_request_pool,
-        ))
         .route("/requests/submit", post(submit))
         .route("/requests/:request_id/approve", post(approve))
         .route("/requests/:request_id/reject", post(reject))
         .route("/requests/:request_id/cancel", post(cancel))
         .route("/balances/adjust", post(adjust_balance))
         .with_state(svc)
+        // Bind the composer's request pool (ADR-0029 pool law): under a
+        // tenant mount the verbs write to the tenant's database; without
+        // one the composed pool stays the fallback. Applied AFTER the
+        // routes — a Router layer only wraps the routes registered before
+        // the call.
+        .layer(axum::middleware::from_fn(
+            crate::request_pool::bind_request_pool,
+        ))
 }
 
 #[derive(Deserialize)]
