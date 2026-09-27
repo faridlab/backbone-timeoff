@@ -302,6 +302,16 @@ impl backbone_orm::EntityRepoMeta for TimeoffRequest {
         m.insert("status".to_string(), "timeoff_request_status".to_string());
         m
     }
+    // Include hydration (#624): the relations the list lane may expand.
+    // employee and timeoffType are the two the Times off desk asks for;
+    // declared per entity because the generic hydration resolves them here
+    // (the framework's cross-schema relation metadata ships with #520).
+    fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
+        &[
+            ("employee", "employee.employees", "employeeId"),
+            ("timeoffType", "timeoff.timeoff_types", "timeoffTypeId"),
+        ]
+    }
     fn search_fields() -> &'static [&'static str] {
         &[]
     }
