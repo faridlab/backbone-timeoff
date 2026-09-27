@@ -13,6 +13,8 @@ models:
   # service's tenancy decorator owns org scoping for this table.
   - name: TimeoffRequest
     collection: timeoff_requests
+    # Data-change audit capture (ADR-0025): per-row trigger -> auditlog.capture_data_change.
+    audited: true
     description: "A leave request (pending → approved triggers balance drawdown)"
     fields:
       id:
