@@ -235,11 +235,11 @@ impl TimeoffRequestWriteService {
             note: note.clone(),
             submitted_at: Utc::now(),
         };
-        let approval_request_id = match self.approvals.file(&filing).await {
-            Ok(id) => Some(id),
+        let (approval_request_id, approved_outright) = match self.approvals.file(&filing).await {
+            Ok(receipt) => (Some(receipt.request_id), receipt.approved_outright),
             // Unwired seam = this deployment doesn't track approvals: the
             // request simply carries no link (module behaves as pre-P1).
-            Err(super::approvals_port::ApprovalSeamError::Unwired) => None,
+            Err(super::approvals_port::ApprovalSeamError::Unwired) => (None, false),
             // A WIRED port that fails is a real failure — fail the submit
             // rather than create a request the engine doesn't know about.
             Err(e) => return Err(e.into()),
@@ -268,8 +268,58 @@ impl TimeoffRequestWriteService {
             tx.rollback().await?;
             return Err(TimeoffError::InvalidState("request rejected — check the timeoff type"));
         }
+        // An OUTRIGHT-approved filing (the engine's no-policy posture)
+        // settles in the SAME transaction: the request never sits pending
+        // with a granted approval behind it (#650). Same drawdown path as an
+        // explicit approve — insufficient balance rolls the whole submit
+        // back, exactly as an approve would refuse.
+        if approved_outright {
+            let approver = None;
+            if let Err(e) = self.settle_approved(&mut tx, request_id, employee_id, approver).await {
+                tx.rollback().await?;
+                return Err(e);
+            }
+        }
         tx.commit().await?;
         Ok(request_id)
+    }
+
+
+    /// The outright-approved settlement inside the submit's own transaction:
+    /// claim pending -> approved, draw the balance, emit the settlement.
+    /// Mirrors `approve_request`'s tail without the engine re-check (the
+    /// engine JUST approved — the receipt said so).
+    async fn settle_approved(
+        &self,
+        tx: &mut sqlx::PgConnection,
+        request_id: Uuid,
+        employee_id: Uuid,
+        approver: Option<Uuid>,
+    ) -> Result<(), TimeoffError> {
+        let row = self.requests.find_for_approval(&self.rpool(), request_id).await?
+            .ok_or(TimeoffError::NotFound("timeoff request"))?;
+        let days = row.days;
+        let date_start = row.date_start;
+        let date_end = row.date_end;
+        let part: String = row.part.clone();
+        let timeoff_type_id = row.timeoff_type_id;
+        let period = date_start.year().to_string();
+        let moved = self.requests
+            .mark_approved(&mut *tx, request_id, approver)
+            .await?;
+        if moved != 1 {
+            return Err(TimeoffError::InvalidState("timeoff request is not pending"));
+        }
+        let drawn = self.balances
+            .draw(&mut *tx, employee_id, timeoff_type_id, &period, days, date_start, date_end)
+            .await?;
+        if drawn != 1 {
+            return Err(TimeoffError::InsufficientBalance);
+        }
+        let settlement =
+            if days.is_zero() { LeaveSettlement::Voided } else { LeaveSettlement::Approved };
+        self.settle(request_id, employee_id, date_start, date_end, settlement, part);
+        Ok(())
     }
 
     /// Approve a timeoff request — THE invariant. Draws down the employee's balance for the timeoff

@@ -78,12 +78,23 @@ pub enum ApprovalSeamError {
 
 /// The port (ADR-0004 serialized-port pattern). Implemented by the composing
 /// app against backbone-approvals; `timeoff` only ever speaks this trait.
+/// What a filing came back as: the engine's request id, and whether the
+/// engine approved it OUTRIGHT (the no-policy posture) — a request the
+/// engine pre-approves must not sit pending on the request side.
+#[derive(Debug, Clone)]
+pub struct FilingReceipt {
+    pub request_id: Uuid,
+    pub approved_outright: bool,
+}
+
+/// The port (ADR-0004 serialized-port pattern). Implemented by the composing
+/// app against backbone-approvals; `timeoff` only ever speaks this trait.
 #[async_trait::async_trait]
 pub trait ApprovalFiling: Send + Sync {
     /// File a new approval request for a submitted timeoff request; returns
-    /// the created `approvals.ApprovalRequest.id` to stamp onto
-    /// `timeoff_requests.approval_request_id`.
-    async fn file(&self, req: &ApprovalFilingRequest) -> Result<Uuid, ApprovalSeamError>;
+    /// the created `approvals.ApprovalRequest.id` (and the outright
+    /// verdict) to stamp onto `timeoff_requests.approval_request_id`.
+    async fn file(&self, req: &ApprovalFilingRequest) -> Result<FilingReceipt, ApprovalSeamError>;
 
     /// Read back the verdict for a previously filed approval.
     async fn status(&self, approval_request_id: Uuid) -> Result<ApprovalVerdict, ApprovalSeamError>;
@@ -96,7 +107,7 @@ pub struct UnwiredApprovals;
 
 #[async_trait::async_trait]
 impl ApprovalFiling for UnwiredApprovals {
-    async fn file(&self, _req: &ApprovalFilingRequest) -> Result<Uuid, ApprovalSeamError> {
+    async fn file(&self, _req: &ApprovalFilingRequest) -> Result<FilingReceipt, ApprovalSeamError> {
         Err(ApprovalSeamError::Unwired)
     }
 
