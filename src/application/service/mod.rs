@@ -31,9 +31,10 @@ pub use accrual_service::{AccrualError, AccrualRunOutcome, AccrualService};
 // backbone-approvals once the H-9 engine lands; default `UnwiredApprovals` keeps the
 // module standalone (ADR-0004: no crate edge on approvals).
 pub mod approvals_port;
-pub use approvals_port::{FilingReceipt,
-    ApprovalFiling, ApprovalFilingRequest, ApprovalSeamError, ApprovalVerdict, UnwiredApprovals,
-;
+pub use approvals_port::{
+    ApprovalFiling, ApprovalFilingRequest, ApprovalSeamError, ApprovalVerdict, FilingReceipt,
+    UnwiredApprovals,
+};
 // The leave-lifecycle event seam: every settling verb (approve / reject / cancel) publishes
 // `LeaveSettled` after its transaction commits. The default `LoggingSink` keeps the module
 // standalone; the composing app supplies the real sink (bus, outbox). The named consumers are
