@@ -18,6 +18,12 @@
 //! 6. advance the watermark by the granted periods (NOT to `now` — remainders
 //!    are never silently absorbed).
 //!
+//! A walk may carry a start point ([`AccrualService::run_accrual_from`]): the
+//! periods that came due before the start day are passed over without a
+//! grant, so a scheduler that begins running on a database it never served
+//! grants what falls due from then on instead of paying out every missed
+//! period at once. HR corrects any balance that should have had them by hand.
+//!
 //! Scheduled as `accrual_update` (`posture: self_arming`, ADR-0020): the
 //! daily 03:00 schedule is a FLOOR; the composing app arms it from
 //! `timeoff_balance_created/updated` too. `commit_policy: commit_per_batch`:
@@ -82,6 +88,21 @@ impl AccrualService {
         batch: i64,
         max_batches: usize,
     ) -> Result<AccrualRunOutcome, AccrualError> {
+        self.run_accrual_from(now, None, batch, max_batches).await
+    }
+
+    /// [`Self::run_accrual`] with a start point: a period that came due
+    /// before the day of `start` is passed over without a grant (the
+    /// watermark moves past it on the balance's own period grid, so later
+    /// grants keep their anniversary day), and a one-time grant whose rung
+    /// began before that day is not paid. `None` grants every elapsed period.
+    pub async fn run_accrual_from(
+        &self,
+        now: DateTime<Utc>,
+        start: Option<DateTime<Utc>>,
+        batch: i64,
+        max_batches: usize,
+    ) -> Result<AccrualRunOutcome, AccrualError> {
         let mut total = AccrualRunOutcome::default();
         for _ in 0..max_batches {
             // Claim pass: short tx, SKIP LOCKED, read state, commit — then each
@@ -106,7 +127,7 @@ impl AccrualService {
                 if let Some(scope) = org_scope::current_org_scope() {
                     org_scope::bind_org_scope_on(&mut tx, &scope).await?;
                 }
-                let one = match self.process_row(&mut tx, row, now).await {
+                let one = match self.process_row(&mut tx, row, now, start).await {
                     Ok(o) => o,
                     Err(e) => {
                         // One poisoned row rolls back only itself; the walk
@@ -134,6 +155,7 @@ impl AccrualService {
         tx: &mut sqlx::PgConnection,
         row: &AccrualWalkRow,
         now: DateTime<Utc>,
+        start: Option<DateTime<Utc>>,
     ) -> Result<RowOutcome, AccrualError> {
         // Step 5 first: past the validity window, the balance expires — no
         // partial-period grant, matching Odoo's deactivate-on-expiry.
@@ -174,6 +196,21 @@ impl AccrualService {
 
         // Watermark: last accrual, or the allocation start on the first walk.
         let watermark = row.last_accrual_at.unwrap_or_else(|| date_from.and_hms_opt(0, 0, 0).unwrap().and_utc());
+
+        // The start point: what fell due before its day is not granted.
+        let start_day = start.map(|s| s.date_naive());
+        if let Some(day) = start_day {
+            if level.frequency == "once"
+                && row.last_accrual_at.is_none()
+                && rung_start(level, date_from).is_some_and(|began| began < day)
+            {
+                return Ok(RowOutcome::NotDue);
+            }
+        }
+        let watermark = match start_day {
+            Some(day) => skip_periods_before(level.frequency.as_str(), watermark, day),
+            None => watermark,
+        };
 
         // `once` grants exactly one time — a watermark already set means that
         // time has passed (guards re-grant even if the rung's period math would
@@ -278,15 +315,37 @@ fn applicable_level(
     levels
         .iter()
         .rev()
-        .find(|l| match l.start_type.as_str() {
-            "days" => date_from + Duration::days(l.start_count.to_i64().unwrap_or(i64::MAX)) <= today,
-            "months" => add_months(date_from, l.start_count.to_i64().unwrap_or(i64::MAX)) <= today,
-            "years" => add_months(date_from, 12 * l.start_count.to_i64().unwrap_or(i64::MAX)) <= today,
-            other => {
-                warn!(start_type = other, "accrual walk: unknown start_type — rung ignored");
-                false
-            }
-        })
+        .find(|l| rung_start(l, date_from).is_some_and(|began| began <= today))
+}
+
+/// The day a rung begins: `start_count × start_type` after `date_from`.
+/// `None` for an unknown start type (the rung is ignored, loudly).
+fn rung_start(level: &AccrualLevelRow, date_from: chrono::NaiveDate) -> Option<chrono::NaiveDate> {
+    let count = level.start_count.to_i64().unwrap_or(i64::MAX);
+    match level.start_type.as_str() {
+        "days" => date_from.checked_add_signed(Duration::days(count)),
+        "months" => Some(add_months(date_from, count)),
+        "years" => Some(add_months(date_from, count.saturating_mul(12))),
+        other => {
+            warn!(start_type = other, "accrual walk: unknown start_type — rung ignored");
+            None
+        }
+    }
+}
+
+/// Move the watermark past every whole period that ended before `day`,
+/// without granting them. The step is the balance's own period grid, so the
+/// next grant still lands on its anniversary day; a period ending ON `day`
+/// is kept for the walk to grant. Unknown frequencies leave it unchanged.
+fn skip_periods_before(frequency: &str, watermark: DateTime<Utc>, day: NaiveDate) -> DateTime<Utc> {
+    let Some(eve) = day.pred_opt() else { return watermark };
+    let eve = eve.and_hms_opt(0, 0, 0).unwrap_or_default().and_utc();
+    match periods_due(frequency, watermark, eve) {
+        Some(missed) if missed > 0 => {
+            advance_watermark(frequency, watermark, missed).unwrap_or(watermark)
+        }
+        _ => watermark,
+    }
 }
 
 /// Headroom under `maximum_leave`; no cap → unbounded (Decimal::MAX).

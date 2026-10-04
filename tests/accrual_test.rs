@@ -308,6 +308,63 @@ async fn accrual_once_grants_exactly_one_time() {
     assert_eq!(allocated, Decimal::from(5), "once must never re-grant");
 }
 
+/// A walk with a start point passes over the periods that fell due before
+/// the start day and grants from there on, on the balance's own grid.
+#[tokio::test]
+async fn accrual_from_a_start_point_skips_the_missed_periods() {
+    let _g = WALK.lock().await;
+    let pool = common::pool().await;
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "monthly",
+               Decimal::new(15, 1), None, "nothing", None).await;
+    let behind = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
+                              Decimal::ZERO, Some(plan), Some(day(2026, 1, 1)), None).await;
+    let svc = AccrualService::new(pool.clone());
+
+    // Started on 2026-03-10: the Feb 1 and Mar 1 periods are the backlog.
+    let start = at(2026, 3, 10);
+    svc.run_accrual_from(at(2026, 3, 10), Some(start), 50, 10).await.unwrap();
+    let (allocated, _, _, watermark, _) = balance_state(&pool, behind).await;
+    assert_eq!(allocated, Decimal::ZERO, "no missed period is paid out");
+    assert_eq!(watermark, None, "nothing was granted, so nothing was written");
+
+    // The next period after the start is granted, and only that one; the
+    // watermark lands on the anniversary day.
+    svc.run_accrual_from(at(2026, 4, 5), Some(start), 50, 10).await.unwrap();
+    let (allocated, _, _, watermark, _) = balance_state(&pool, behind).await;
+    assert_eq!(allocated, Decimal::new(15, 1));
+    assert_eq!(watermark, Some(Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap()));
+
+    // A period ending on the start day itself is granted.
+    let on_day = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
+                              Decimal::ZERO, Some(plan), Some(day(2026, 1, 10)), None).await;
+    svc.run_accrual_from(at(2026, 3, 10), Some(start), 50, 10).await.unwrap();
+    let (allocated, _, _, _, _) = balance_state(&pool, on_day).await;
+    assert_eq!(allocated, Decimal::new(15, 1), "the Mar 10 period falls due on the start day");
+}
+
+/// A one-time grant whose rung began before the start day is not paid; one
+/// that begins after it is.
+#[tokio::test]
+async fn accrual_once_before_the_start_point_is_not_paid() {
+    let _g = WALK.lock().await;
+    let pool = common::pool().await;
+    let type_id = seed_type(&pool).await;
+    let plan = seed_plan(&pool, type_id).await;
+    seed_level(&pool, plan, 1, Decimal::ZERO, "days", "once",
+               Decimal::from(5), None, "nothing", None).await;
+    let before = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
+                              Decimal::ZERO, Some(plan), Some(day(2026, 1, 1)), None).await;
+    let after = seed_balance(&pool, type_id, Uuid::new_v4(), "2026",
+                             Decimal::ZERO, Some(plan), Some(day(2026, 4, 1)), None).await;
+
+    let svc = AccrualService::new(pool.clone());
+    svc.run_accrual_from(at(2026, 4, 2), Some(at(2026, 3, 10)), 50, 10).await.unwrap();
+    assert_eq!(balance_state(&pool, before).await.0, Decimal::ZERO);
+    assert_eq!(balance_state(&pool, after).await.0, Decimal::from(5));
+}
+
 // ─── the approvals seam + the draw window ─────────────────────────────────────
 
 /// The in-test approvals engine: records filings, replays a mutable verdict map.
@@ -331,11 +388,14 @@ impl FakeApprovals {
 
 #[async_trait::async_trait]
 impl ApprovalFiling for FakeApprovals {
-    async fn file(&self, req: &ApprovalFilingRequest) -> Result<Uuid, backbone_timeoff::application::service::approvals_port::ApprovalSeamError> {
+    async fn file(&self, req: &ApprovalFilingRequest) -> Result<backbone_timeoff::application::service::approvals_port::FilingReceipt, backbone_timeoff::application::service::approvals_port::ApprovalSeamError> {
         let id = Uuid::new_v4();
         self.filings.lock().unwrap().push(req.clone());
         self.verdicts.lock().unwrap().insert(id, ApprovalVerdict::Pending);
-        Ok(id)
+        Ok(backbone_timeoff::application::service::approvals_port::FilingReceipt {
+            request_id: id,
+            approved_outright: false,
+        })
     }
 
     async fn status(&self, approval_request_id: Uuid) -> Result<ApprovalVerdict, backbone_timeoff::application::service::approvals_port::ApprovalSeamError> {
