@@ -15,10 +15,10 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use backbone_auth::org::OrgContext;
@@ -81,6 +81,8 @@ pub fn create_timeoff_verb_routes(svc: Arc<TimeoffRequestWriteService>) -> Route
         .route("/requests/:request_id/reject", post(reject))
         .route("/requests/:request_id/cancel", post(cancel))
         .route("/balances/adjust", post(adjust_balance))
+        .route("/balances/available", get(available))
+        .route("/requests/preview", post(preview))
         .with_state(svc)
         // Bind the composer's request pool (ADR-0029 pool law): under a
         // tenant mount the verbs write to the tenant's database; without
@@ -192,3 +194,71 @@ async fn cancel(
         Err(e) => err_response(e),
     }
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AvailableQuery {
+    employee_id: Uuid,
+    /// The balance period (a year); defaults to the current one.
+    #[serde(default)]
+    period: Option<String>,
+}
+
+/// Each leave type's standing for an employee: allocated, used, pending, and
+/// what is available before and after the pending asks — the figures a leave
+/// form shows, computed by the rules the approval draw applies.
+async fn available(
+    State(svc): State<Arc<TimeoffRequestWriteService>>,
+    _org: OrgContext,
+    Query(q): Query<AvailableQuery>,
+) -> Response {
+    use chrono::Datelike;
+    let period = q.period.unwrap_or_else(|| chrono::Utc::now().year().to_string());
+    match svc.standings(q.employee_id, &period).await {
+        Ok(rows) => Json(json!({ "data": rows, "period": period })).into_response(),
+        Err(e) => err_response(e),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewBody {
+    employee_id: Uuid,
+    timeoff_type_id: Uuid,
+    date_start: chrono::NaiveDate,
+    date_end: chrono::NaiveDate,
+    /// "full" (default) | "am" | "pm", as on submit.
+    #[serde(default)]
+    part: Option<String>,
+}
+
+/// What an ask would cost and whether the service would take it, without
+/// filing anything. Days that cannot be asked at all (a half day over two
+/// days, a window that ends before it starts) answer 422 as submit does.
+async fn preview(
+    State(svc): State<Arc<TimeoffRequestWriteService>>,
+    _org: OrgContext,
+    Json(b): Json<PreviewBody>,
+) -> Response {
+    let part = b.part.as_deref().unwrap_or("full");
+    if !matches!(part, "full" | "am" | "pm") {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "bad_part", "message": "part must be one of: full, am, pm" })),
+        )
+            .into_response();
+    }
+    match svc
+        .preview_request(b.timeoff_type_id, b.employee_id, b.date_start, b.date_end, part)
+        .await
+    {
+        Ok(p) => Json(p).into_response(),
+        Err(TimeoffError::InvalidState(m)) => (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "error": "invalid_state", "message": m })),
+        )
+            .into_response(),
+        Err(e) => err_response(e),
+    }
+}
+

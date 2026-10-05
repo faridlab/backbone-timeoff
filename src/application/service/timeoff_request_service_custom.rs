@@ -180,45 +180,18 @@ impl TimeoffRequestWriteService {
         attachment_file_id: Option<Uuid>,
         attachment_note: Option<String>,
     ) -> Result<Uuid, TimeoffError> {
-        if part != "full" && date_start != date_end {
-            return Err(TimeoffError::InvalidState(
-                "a half day (am/pm) is expressible only on a single-day request",
-            ));
-        }
+        let days = days_asked(part, date_start, date_end)?;
         // The approvals books on the far side still key on a company (the
         // legacy twin of the ambient org unit — see the tenancy note above);
         // read it here rather than having every caller fetch it and pass it
         // back in.
         let company_id = Self::legacy_company_id()?;
         let request_id = Uuid::new_v4();
-        // The days this ask consumes: inclusive for a full-day window, half a
-        // day for an am/pm single-day ask.
-        let days = if part == "full" {
-            chrono_days_inclusive(date_start, date_end)
-        } else {
-            rust_decimal::Decimal::new(5, 1)
-        };
         // The per-request ceiling, when the type carries one. Read before
-        // filing: a refused ask never reaches the engine at all. The read
-        // rides the scoped-fetch twin (request-dedicated connection when the
-        // composing service bound one) — a raw pool read runs unfenced and
-        // the row, with its cap, is simply not there.
-        let cap: Option<rust_decimal::Decimal> =
-            backbone_orm::company_scope::fetch_optional_scoped(
-                &self.rpool(),
-                sqlx::query_as::<_, (Option<rust_decimal::Decimal>,)>(
-                    r#"SELECT max_days_per_request FROM timeoff.timeoff_types
-                        WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
-                )
-                .bind(timeoff_type_id),
-            )
-            .await?
-            .and_then(|(c,)| c);
-        if let Some(cap) = cap {
+        // filing: a refused ask never reaches the engine at all.
+        if let Some(cap) = self.type_cap(timeoff_type_id).await? {
             if days > cap {
-                return Err(TimeoffError::InvalidState(
-                    "this leave type caps one request below the days asked for — split the ask",
-                ));
+                return Err(TimeoffError::InvalidState(CAP_REFUSAL));
             }
         }
         // File first (outside any tx — the port is a network call to the
@@ -630,3 +603,250 @@ fn chrono_days_inclusive(start: chrono::NaiveDate, end: chrono::NaiveDate) -> ru
     let days = (end - start).num_days() + 1;
     rust_decimal::Decimal::from(days.max(0).to_i64().unwrap_or(0))
 }
+
+/// What `submit` refuses an ask over a type's per-request ceiling with.
+const CAP_REFUSAL: &str = "this leave type caps one request below the days asked for — split the ask";
+
+/// The days an ask consumes: the inclusive calendar span for a full-day window,
+/// half a day for an am/pm single-day ask. One rule for the submit that files
+/// the request and the preview that says what it will cost.
+pub fn days_asked(
+    part: &str,
+    date_start: chrono::NaiveDate,
+    date_end: chrono::NaiveDate,
+) -> Result<rust_decimal::Decimal, TimeoffError> {
+    if date_end < date_start {
+        return Err(TimeoffError::InvalidState("the last day is before the first"));
+    }
+    if part == "full" {
+        Ok(chrono_days_inclusive(date_start, date_end))
+    } else if date_start != date_end {
+        Err(TimeoffError::InvalidState(
+            "a half day (am/pm) is expressible only on a single-day request",
+        ))
+    } else {
+        Ok(rust_decimal::Decimal::new(5, 1))
+    }
+}
+
+/// One leave type's standing for one employee in one period, as the approval
+/// draw sees it.
+///
+/// `available` is the draw's own gate (`allocated - used`): carried-over days
+/// count only once an accrual folds them into `allocated`. Pending requests
+/// hold nothing on the balance; they are drawn when approved, so
+/// `available_after_pending` is what would be left if every pending ask were
+/// approved — the figure a person asking for more leave needs.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeaveStanding {
+    pub timeoff_type_id: Uuid,
+    pub period: String,
+    pub allocated: rust_decimal::Decimal,
+    pub used: rust_decimal::Decimal,
+    pub pending: rust_decimal::Decimal,
+    pub available: rust_decimal::Decimal,
+    pub available_after_pending: rust_decimal::Decimal,
+    /// The balance's validity window; an ask outside it cannot be drawn.
+    pub date_from: Option<chrono::NaiveDate>,
+    pub date_to: Option<chrono::NaiveDate>,
+}
+
+/// What an ask would cost and whether the service would take it, computed by
+/// the same rules as `submit` and the approval draw — so a form can say so
+/// before anything is filed.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeavePreview {
+    pub days: rust_decimal::Decimal,
+    /// The type's per-request ceiling, when it has one.
+    pub cap: Option<rust_decimal::Decimal>,
+    /// The balance period the draw would use (the first day's year).
+    pub period: String,
+    pub standing: Option<LeaveStanding>,
+    /// Whether the ask fits: under the cap, inside the balance window, and
+    /// within what is left once the pending asks are approved.
+    pub fits: bool,
+    /// Why it does not fit, in words a form can show.
+    pub refusal: Option<String>,
+}
+
+impl TimeoffRequestWriteService {
+    /// The type's per-request ceiling. The read rides the scoped-fetch twin
+    /// (request-dedicated connection when the composing service bound one) —
+    /// a raw pool read runs unfenced and the row, with its cap, is not there.
+    async fn type_cap(&self, timeoff_type_id: Uuid) -> Result<Option<rust_decimal::Decimal>, TimeoffError> {
+        Ok(backbone_orm::company_scope::fetch_optional_scoped(
+            &self.rpool(),
+            sqlx::query_as::<_, (Option<rust_decimal::Decimal>,)>(
+                r#"SELECT max_days_per_request FROM timeoff.timeoff_types
+                    WHERE id = $1 AND (metadata->>'deleted_at') IS NULL"#,
+            )
+            .bind(timeoff_type_id),
+        )
+        .await?
+        .and_then(|(c,)| c))
+    }
+
+    /// Every leave type's standing for an employee in a period (a year, as
+    /// balances are keyed). Pending days are summed with the approval's own
+    /// day expression, over the asks whose first day falls in the period.
+    pub async fn standings(
+        &self,
+        employee_id: Uuid,
+        period: &str,
+    ) -> Result<Vec<LeaveStanding>, TimeoffError> {
+        type Row = (
+            Uuid,
+            String,
+            rust_decimal::Decimal,
+            rust_decimal::Decimal,
+            rust_decimal::Decimal,
+            Option<chrono::NaiveDate>,
+            Option<chrono::NaiveDate>,
+        );
+        let rows: Vec<Row> = backbone_orm::company_scope::fetch_all_scoped(
+            &self.rpool(),
+            sqlx::query_as::<_, Row>(
+                r#"SELECT b.timeoff_type_id, b.period, b.allocated, b.used,
+                          COALESCE((
+                            SELECT SUM(CASE WHEN r.part = 'full' THEN (r.date_end - r.date_start + 1)
+                                            ELSE 0.5 END)::numeric
+                              FROM timeoff.timeoff_requests r
+                             WHERE r.employee_id = b.employee_id
+                               AND r.timeoff_type_id = b.timeoff_type_id
+                               AND r.status = 'pending'
+                               AND to_char(r.date_start, 'YYYY') = b.period
+                               AND (r.metadata->>'deleted_at') IS NULL
+                          ), 0)::numeric AS pending,
+                          b.date_from, b.date_to
+                     FROM timeoff.timeoff_balances b
+                    WHERE b.employee_id = $1 AND b.period = $2
+                      AND (b.metadata->>'deleted_at') IS NULL
+                    ORDER BY b.timeoff_type_id"#,
+            )
+            .bind(employee_id)
+            .bind(period),
+        )
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(timeoff_type_id, period, allocated, used, pending, date_from, date_to)| {
+                let available = allocated - used;
+                LeaveStanding {
+                    timeoff_type_id,
+                    period,
+                    allocated,
+                    used,
+                    pending,
+                    available,
+                    available_after_pending: available - pending,
+                    date_from,
+                    date_to,
+                }
+            })
+            .collect())
+    }
+
+    /// What an ask would cost and whether it fits, without filing anything.
+    pub async fn preview_request(
+        &self,
+        timeoff_type_id: Uuid,
+        employee_id: Uuid,
+        date_start: chrono::NaiveDate,
+        date_end: chrono::NaiveDate,
+        part: &str,
+    ) -> Result<LeavePreview, TimeoffError> {
+        let days = days_asked(part, date_start, date_end)?;
+        let cap = self.type_cap(timeoff_type_id).await?;
+        let period = date_start.year().to_string();
+        let standing = self
+            .standings(employee_id, &period)
+            .await?
+            .into_iter()
+            .find(|s| s.timeoff_type_id == timeoff_type_id);
+        let refusal = preview_refusal(days, cap, standing.as_ref(), date_start, date_end);
+        Ok(LeavePreview { days, cap, period, fits: refusal.is_none(), standing, refusal })
+    }
+}
+
+/// Why an ask would be refused, checked in the order the service refuses it:
+/// the per-request cap at submit, then the draw's balance and window at approval.
+pub fn preview_refusal(
+    days: rust_decimal::Decimal,
+    cap: Option<rust_decimal::Decimal>,
+    standing: Option<&LeaveStanding>,
+    date_start: chrono::NaiveDate,
+    date_end: chrono::NaiveDate,
+) -> Option<String> {
+    if let Some(cap) = cap {
+        if days > cap {
+            return Some(CAP_REFUSAL.to_string());
+        }
+    }
+    let Some(s) = standing else {
+        return Some("there is no balance of this kind of leave for that year".to_string());
+    };
+    if s.date_from.is_some_and(|f| f > date_start) || s.date_to.is_some_and(|t| t < date_end) {
+        return Some("those days fall outside the balance's validity".to_string());
+    }
+    if days > s.available_after_pending {
+        return Some(format!(
+            "{} days asked, {} left once the pending requests are decided",
+            days.normalize(),
+            s.available_after_pending.normalize()
+        ));
+    }
+    None
+}
+
+#[cfg(test)]
+mod preview_rules_tests {
+    use super::*;
+    use rust_decimal::Decimal;
+
+    fn d(y: i32, m: u32, day: u32) -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(y, m, day).unwrap()
+    }
+    fn standing(allocated: i64, used: i64, pending: i64) -> LeaveStanding {
+        let (a, u, p) = (Decimal::from(allocated), Decimal::from(used), Decimal::from(pending));
+        LeaveStanding {
+            timeoff_type_id: Uuid::nil(),
+            period: "2026".into(),
+            allocated: a,
+            used: u,
+            pending: p,
+            available: a - u,
+            available_after_pending: a - u - p,
+            date_from: None,
+            date_to: None,
+        }
+    }
+
+    #[test]
+    fn counts_days_the_way_submit_files_them() {
+        assert_eq!(days_asked("full", d(2026, 10, 9), d(2026, 10, 12)).unwrap(), Decimal::from(4));
+        assert_eq!(days_asked("am", d(2026, 10, 9), d(2026, 10, 9)).unwrap(), Decimal::new(5, 1));
+        assert!(days_asked("pm", d(2026, 10, 9), d(2026, 10, 10)).is_err());
+        assert!(days_asked("full", d(2026, 10, 10), d(2026, 10, 9)).is_err());
+    }
+
+    #[test]
+    fn holds_pending_asks_against_what_is_left() {
+        let s = standing(12, 4, 6);
+        assert_eq!(preview_refusal(Decimal::from(2), None, Some(&s), d(2026, 3, 1), d(2026, 3, 2)), None);
+        let no = preview_refusal(Decimal::from(3), None, Some(&s), d(2026, 3, 1), d(2026, 3, 3));
+        assert_eq!(no.as_deref(), Some("3 days asked, 2 left once the pending requests are decided"));
+    }
+
+    #[test]
+    fn refuses_over_the_cap_and_without_a_balance() {
+        let s = standing(12, 0, 0);
+        assert_eq!(
+            preview_refusal(Decimal::from(5), Some(Decimal::from(3)), Some(&s), d(2026, 3, 1), d(2026, 3, 5)).as_deref(),
+            Some(CAP_REFUSAL)
+        );
+        assert!(preview_refusal(Decimal::ONE, None, None, d(2026, 3, 1), d(2026, 3, 1)).is_some());
+    }
+}
+
