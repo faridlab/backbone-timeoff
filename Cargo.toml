@@ -1,6 +1,6 @@
 [package]
 name = "backbone-timeoff"
-version = "0.4.35"
+version = "0.5.0"
 edition = "2021"
 description = "leave / absence: types, requests, balances (+ drawdown invariant)"
 license = "MIT OR Apache-2.0"
@@ -20,15 +20,15 @@ path = "src/lib.rs"
 # or `rev = "<commit-sha>"`. Cargo dedupes the git fetch — the repo is only
 # cloned once even though four crates reference it.
 # -----------------------------------------------------------------------------
-backbone-core = { version = "2.7.35", features = ["postgres"] }
-backbone-orm = { version = "2.7.35" }
-backbone-auth = { version = "2.7.35", features = ["axum"] }
-backbone-messaging = { version = "2.7.35" }
+backbone-core = { version = "3.0.0", features = ["postgres"] }
+backbone-orm = { version = "3.0.0" }
+backbone-auth = { version = "3.0.0", features = ["axum"] }
+backbone-messaging = { version = "3.0.0" }
 # Transactional-outbox consumer (ADR-005): the `offboarding.encash` handler dedups via `inbox::once`
 # in the same tx as the balance-zeroing UPDATE. Pinned to the same tag the rest of the HR constellation
 # (employee/payroll/lifecycle) uses so the `IntegrationEventHandler` trait unifies across modules; the
 # HR composer's [patch] block unifies backbone-outbox onto local HEAD for dev.
-backbone-outbox = { version = "2.7.35" }
+backbone-outbox = { version = "3.0.0" }
 
 # Core async runtime and serialization
 tokio = { version = "1.0", features = ["full"] }
