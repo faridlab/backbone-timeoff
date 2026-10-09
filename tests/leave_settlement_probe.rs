@@ -154,10 +154,22 @@ async fn to_sink_emits_on_approve_refuse_cancel_void() {
         }
 
         // ── zero-day window settles Voided ──────────────────────────────────────
-        let req = svc
-            .submit_request(type_id, employee, day(2026, 7, 10), day(2026, 7, 9), None)
-            .await
-            .unwrap();
+        // submit refuses a window whose last day is before its first, so a zero-day
+        // request exists only as a row written before that rule: seed one directly.
+        let req = Uuid::new_v4();
+        sqlx::query(
+            r#"INSERT INTO timeoff.timeoff_requests
+                   (id, timeoff_type_id, employee_id, date_start, date_end, part, status)
+               VALUES ($1, $2, $3, $4, $5, 'full'::leave_part, 'pending'::timeoff_request_status)"#,
+        )
+        .bind(req)
+        .bind(type_id)
+        .bind(employee)
+        .bind(day(2026, 7, 10))
+        .bind(day(2026, 7, 9))
+        .execute(&pool)
+        .await
+        .unwrap();
         svc.approve_request(req, None).await.unwrap();
         let events = sink.events();
         assert_eq!(events.len(), 6, "void-settle appends one event");
@@ -206,4 +218,45 @@ async fn to_default_sink_keeps_verb_behavior() {
         assert_eq!(used, Decimal::ZERO, "approve drew 2 days, cancel restored them");
     })
     .await;
+}
+
+#[tokio::test]
+async fn a_verb_without_an_org_scope_changes_nothing_and_settles_nothing() {
+    // The settlement event keys on the scope's company. A verb that runs with no scope
+    // bound must refuse before it writes, rather than settle under the nil company.
+    let pool = common::pool().await;
+    let company = Uuid::new_v4();
+    let employee = Uuid::new_v4();
+    let sink = CapturingSink::default();
+    let svc = TimeoffRequestWriteService::new(pool.clone()).with_events(Arc::new(sink.clone()));
+    let (type_id, req) = common::scoped_as(&pool, company, async {
+        let type_id = seed_type(&pool).await;
+        seed_balance(&pool, type_id, employee).await;
+        let req = svc
+            .submit_request(type_id, employee, day(2026, 6, 1), day(2026, 6, 2), None)
+            .await
+            .unwrap();
+        (type_id, req)
+    })
+    .await;
+    let _ = type_id;
+    let settled_before = sink.events().len();
+
+    for (verb, outcome) in [
+        ("approve", svc.approve_request(req, None).await),
+        ("reject", svc.reject_request(req).await),
+        ("cancel", svc.cancel_request(req).await),
+    ] {
+        assert!(
+            matches!(outcome, Err(backbone_timeoff::application::service::TimeoffError::NoCompanyScope)),
+            "{verb} without an org scope must refuse, got {outcome:?}"
+        );
+    }
+    assert_eq!(sink.events().len(), settled_before, "nothing settles without a scope");
+    let status: String = sqlx::query_scalar("SELECT status::text FROM timeoff.timeoff_requests WHERE id = $1")
+        .bind(req)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(status, "pending", "the request is unchanged");
 }

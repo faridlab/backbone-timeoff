@@ -121,8 +121,14 @@ impl TimeoffRequestWriteService {
     /// Publish a settlement off the verb's committed state. Private: the only
     /// call sites sit immediately after a `tx.commit()` (or the lock-free
     /// pending transitions), so a rolled-back verb never emits.
+    ///
+    /// `company_id` is the legacy twin the leave consumers still key on. Every
+    /// verb resolves it from the org scope before its first write and passes it
+    /// here, so a verb without a scope fails before it changes anything and no
+    /// settlement can carry the nil company.
     fn settle(
         &self,
+        company_id: Uuid,
         request_id: Uuid,
         employee_id: Uuid,
         date_from: chrono::NaiveDate,
@@ -130,9 +136,6 @@ impl TimeoffRequestWriteService {
         settlement: LeaveSettlement,
         part: String,
     ) {
-        // The emitted event still carries the legacy twin for its consumers; read it here rather
-        // than having every caller fetch it and pass it back in.
-        let company_id = Self::legacy_company_id().unwrap_or_default();
         self.events.publish(&TimeoffEvent::LeaveSettled(LeaveSettled {
             company_id,
             request_id,
@@ -248,7 +251,7 @@ impl TimeoffRequestWriteService {
         // back, exactly as an approve would refuse.
         if approved_outright {
             let approver = None;
-            if let Err(e) = self.settle_approved(&mut tx, request_id, employee_id, approver).await {
+            if let Err(e) = self.settle_approved(company_id, &mut tx, request_id, employee_id, approver).await {
                 tx.rollback().await?;
                 return Err(e);
             }
@@ -264,6 +267,7 @@ impl TimeoffRequestWriteService {
     /// engine JUST approved — the receipt said so).
     async fn settle_approved(
         &self,
+        company_id: Uuid,
         tx: &mut sqlx::PgConnection,
         request_id: Uuid,
         employee_id: Uuid,
@@ -291,7 +295,7 @@ impl TimeoffRequestWriteService {
         }
         let settlement =
             if days.is_zero() { LeaveSettlement::Voided } else { LeaveSettlement::Approved };
-        self.settle(request_id, employee_id, date_start, date_end, settlement, part);
+        self.settle(company_id, request_id, employee_id, date_start, date_end, settlement, part);
         Ok(())
     }
 
@@ -308,6 +312,8 @@ impl TimeoffRequestWriteService {
         timeoff_request_id: Uuid,
         approver: Option<Uuid>,
     ) -> Result<(), TimeoffError> {
+        // The settlement event keys on the company: resolve it before any write, fail-closed.
+        let company_id = Self::legacy_company_id()?;
         // ID-only read (ADR-0029): identified by the request id alone. It rides the
         // request-dedicated connection when the composing service bound one, so a row its
         // tenancy decorator's fence excludes simply is not found.
@@ -385,21 +391,21 @@ impl TimeoffRequestWriteService {
             if days.is_zero() { LeaveSettlement::Voided } else { LeaveSettlement::Approved };
         // The event seam still keys on a company (the leave consumers): source the legacy twin
         // off the ambient org scope, fail-closed.
-        self.settle(timeoff_request_id, employee_id, date_start, date_end, settlement, part.to_string());
+        self.settle(company_id, timeoff_request_id, employee_id, date_start, date_end, settlement, part.to_string());
         Ok(())
     }
 
     /// Reject a pending timeoff request (no balance change). Ported from backbone-hr's `reject_leave`.
     pub async fn reject_request(&self, timeoff_request_id: Uuid) -> Result<(), TimeoffError> {
+        // The settlement event keys on the company: resolve it before any write, fail-closed.
+        let company_id = Self::legacy_company_id()?;
         // ID-only (ADR-0029): no tenant argument — the gated UPDATE rides the request-dedicated
         // connection when one is bound, so the composing decorator's fence decides what is
         // rejectable; another tenant's request is simply not matched.
         let settled = self.requests.mark_rejected(&self.rpool(), timeoff_request_id).await?;
         let row = settled.ok_or(TimeoffError::InvalidState("timeoff request is not pending"))?;
-        // The event seam still keys on a company (the leave consumers): source the legacy twin
-        // off the ambient org scope, fail-closed.
-        Self::legacy_company_id()?;
         self.settle(
+            company_id,
             timeoff_request_id,
             row.employee_id,
             row.date_start,
@@ -523,6 +529,8 @@ impl TimeoffRequestWriteService {
     ///
     /// Ported from backbone-hr's `cancel_leave`.
     pub async fn cancel_request(&self, timeoff_request_id: Uuid) -> Result<(), TimeoffError> {
+        // The settlement event keys on the company: resolve it before any write, fail-closed.
+        let company_id = Self::legacy_company_id()?;
         // ID-only read (ADR-0029): identified by the request id alone. It rides the
         // request-dedicated connection when the composing service bound one, so a row its
         // tenancy decorator's fence excludes simply is not found.
@@ -534,10 +542,8 @@ impl TimeoffRequestWriteService {
             if m != 1 {
                 return Err(TimeoffError::InvalidState("not cancellable"));
             }
-            // The event seam still keys on a company (the leave consumers): source the legacy
-            // twin off the ambient org scope, fail-closed.
-            Self::legacy_company_id()?;
             self.settle(
+                company_id,
                 timeoff_request_id,
                 app.employee_id,
                 app.date_start,
@@ -580,10 +586,8 @@ impl TimeoffRequestWriteService {
             ));
         }
         tx.commit().await?;
-        // The event seam still keys on a company (the leave consumers): source the legacy twin
-        // off the ambient org scope, fail-closed.
-        Self::legacy_company_id()?;
         self.settle(
+            company_id,
             timeoff_request_id,
             employee_id,
             app.date_start,
