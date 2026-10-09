@@ -398,7 +398,7 @@ impl TimeoffRequestWriteService {
         let row = settled.ok_or(TimeoffError::InvalidState("timeoff request is not pending"))?;
         // The event seam still keys on a company (the leave consumers): source the legacy twin
         // off the ambient org scope, fail-closed.
-        let company_id = Self::legacy_company_id()?;
+        Self::legacy_company_id()?;
         self.settle(
             timeoff_request_id,
             row.employee_id,
@@ -536,7 +536,7 @@ impl TimeoffRequestWriteService {
             }
             // The event seam still keys on a company (the leave consumers): source the legacy
             // twin off the ambient org scope, fail-closed.
-            let company_id = Self::legacy_company_id()?;
+            Self::legacy_company_id()?;
             self.settle(
                 timeoff_request_id,
                 app.employee_id,
@@ -582,7 +582,7 @@ impl TimeoffRequestWriteService {
         tx.commit().await?;
         // The event seam still keys on a company (the leave consumers): source the legacy twin
         // off the ambient org scope, fail-closed.
-        let company_id = Self::legacy_company_id()?;
+        Self::legacy_company_id()?;
         self.settle(
             timeoff_request_id,
             employee_id,
