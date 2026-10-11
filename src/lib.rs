@@ -25,8 +25,17 @@ pub mod presentation;
 pub mod seeders;
 pub mod exports;
 // <<< CUSTOM MODULES
-pub mod request_pool;
 // END CUSTOM
+
+// The module's extension (hand-written; ADR-0031).
+#[path = "lib.ext.rs"]
+mod lib_ext;
+pub use lib_ext::*;
+/// This crate's module and builder under fixed names, for the extension's `impl` blocks.
+#[allow(dead_code)]
+pub(crate) type ThisModule = TimeoffModule;
+#[allow(dead_code)]
+pub(crate) type ThisModuleBuilder = TimeoffModuleBuilder;
 
 // Re-exports for convenience - Domain entities
 pub use domain::entity::*;
@@ -69,23 +78,39 @@ pub struct TimeoffModule {
     pub(crate) timeoff_balance_service: Arc<TimeoffBalanceService>,
     pub(crate) timeoff_request_service: Arc<TimeoffRequestService>,
     pub(crate) timeoff_type_service: Arc<TimeoffTypeService>,
+    /// The module's extension state (`lib.ext.rs`); its fields read through `Deref`.
+    pub(crate) ext: ModuleExt,
     // <<< CUSTOM FIELDS
-    // Held so the `TimeoffQueryService` impl can delegate `paid_leave_days` to the repo's
-    // hand-written SQL, and standard lookups to the CRUD services above. `db_pool` is the same pool
-    // the repo was constructed with (the repo's `paid_leave_days` takes it per the backbone-attendance
-    // read-port convention — the ambient org scope the composing service bound fences it).
-    pub(crate) timeoff_request_repository: Arc<TimeoffRequestRepository>,
-    // The balance repo + write service are wired here so the leave-drawdown invariant is live on the
-    // module, but no in-crate handler drives them yet (the approve/reject/cancel HTTP surface and a
-    // public accessor land in the next phase, alongside the outbox/compound-event wiring per ADR-005).
-    // `#[allow(dead_code)]` is honest about that — the service is fully functional, just not yet
-    // called from inside this crate.
-    #[allow(dead_code)]
-    pub(crate) timeoff_balance_repository: Arc<TimeoffBalanceRepository>,
-    #[allow(dead_code)]
-    pub(crate) timeoff_write_service: Arc<application::service::TimeoffRequestWriteService>,
-    pub(crate) db_pool: sqlx::PgPool,
     // END CUSTOM
+}
+
+impl std::ops::Deref for TimeoffModule {
+    type Target = ModuleExt;
+    fn deref(&self) -> &Self::Target {
+        &self.ext
+    }
+}
+
+impl std::ops::DerefMut for TimeoffModule {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ext
+    }
+}
+
+/// What the extension's `build` hook receives from the generated build (ADR-0031).
+#[allow(dead_code)]
+pub(crate) struct ModuleParts<'a> {
+    pub(crate) db_pool: &'a PgPool,
+    pub(crate) timeoff_accrual_plan_service: &'a Arc<TimeoffAccrualPlanService>,
+    pub(crate) timeoff_accrual_plan_repository: &'a Arc<TimeoffAccrualPlanRepository>,
+    pub(crate) timeoff_accrual_level_service: &'a Arc<TimeoffAccrualLevelService>,
+    pub(crate) timeoff_accrual_level_repository: &'a Arc<TimeoffAccrualLevelRepository>,
+    pub(crate) timeoff_balance_service: &'a Arc<TimeoffBalanceService>,
+    pub(crate) timeoff_balance_repository: &'a Arc<TimeoffBalanceRepository>,
+    pub(crate) timeoff_request_service: &'a Arc<TimeoffRequestService>,
+    pub(crate) timeoff_request_repository: &'a Arc<TimeoffRequestRepository>,
+    pub(crate) timeoff_type_service: &'a Arc<TimeoffTypeService>,
+    pub(crate) timeoff_type_repository: &'a Arc<TimeoffTypeRepository>,
 }
 
 impl TimeoffModule {
@@ -149,63 +174,29 @@ impl TimeoffModule {
     }
 
     // <<< CUSTOM METHODS
-    /// The leave ADMIN surface: generic writes for the master data HR owns
-    /// (types, accrual plans, accrual levels) — the read-only base plus these
-    /// is what a real deployment mounts for policy management. Balances and
-    /// requests stay OFF this surface: balances move through the audited
-    /// adjust verb on the write service, requests through its lifecycle verbs.
-    pub fn admin_routes(&self) -> Router {
-        use presentation::http::{
-            create_timeoff_accrual_level_write_routes, create_timeoff_accrual_plan_write_routes,
-            create_timeoff_type_write_routes,
-        };
-
-        self.readonly_routes()
-            .merge(create_timeoff_type_write_routes(
-                self.timeoff_type_service.clone(),
-            ))
-            .merge(create_timeoff_accrual_plan_write_routes(
-                self.timeoff_accrual_plan_service.clone(),
-            ))
-            .merge(create_timeoff_accrual_level_write_routes(
-                self.timeoff_accrual_level_service.clone(),
-            ))
-    }
-
-    /// The module-held validated write path (request verbs + the approvals seam).
-    pub fn timeoff_write_service(&self) -> Arc<application::service::TimeoffRequestWriteService> {
-        self.timeoff_write_service.clone()
-    }
-
-    /// Replace the write service at the composition root — the way a host arms the approvals
-    /// seam: the module builds the service internally (default-unwired), so the app builds its
-    /// own from the same pool with the port attached and swaps it in. Consuming `self` keeps
-    /// the chain reading naturally; call before mounting routes, the module is consumed once
-    /// at startup.
-    ///
-    /// ```text
-    /// let timeoff = TimeoffModule::builder()
-    ///     .with_database(pool.clone())
-    ///     .build()?
-    ///     .with_timeoff_write_service(Arc::new(
-    ///         TimeoffRequestWriteService::new(pool.clone()).with_approvals(port),
-    ///     ));
-    /// ```
-    pub fn with_timeoff_write_service(
-        mut self,
-        svc: Arc<application::service::TimeoffRequestWriteService>,
-    ) -> Self {
-        self.timeoff_write_service = svc;
-        self
-    }
     // END CUSTOM
 }
 
 /// Builder for TimeoffModule
 pub struct TimeoffModuleBuilder {
     db_pool: Option<PgPool>,
+    /// The builder's extension state (`lib.ext.rs`); its fields read through `Deref`.
+    ext: ModuleBuilderExt,
     // <<< CUSTOM BUILDER FIELDS
     // END CUSTOM
+}
+
+impl std::ops::Deref for TimeoffModuleBuilder {
+    type Target = ModuleBuilderExt;
+    fn deref(&self) -> &Self::Target {
+        &self.ext
+    }
+}
+
+impl std::ops::DerefMut for TimeoffModuleBuilder {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.ext
+    }
 }
 
 impl TimeoffModuleBuilder {
@@ -213,6 +204,7 @@ impl TimeoffModuleBuilder {
     pub fn new() -> Self {
         Self {
             db_pool: None,
+            ext: Default::default(),
             // <<< CUSTOM BUILDER DEFAULTS
             // END CUSTOM
         }
@@ -253,13 +245,22 @@ impl TimeoffModuleBuilder {
         let timeoff_type_service = Arc::new(TimeoffTypeService::with_repository(timeoff_type_repository.clone()));
 
         // <<< CUSTOM
-        // Retain the timeoff-request repo + pool on the module so the `TimeoffQueryService` impl can
-        // delegate `paid_leave_days` (custom SQL on the repo) and supply the pool the repo method takes.
-        // Construct the hand-authored leave-drawdown write service from the same pool — it owns the
-        // approve/reject/cancel transitions and pairs them with the balance repo's draw/restore inside
-        // one transaction (ported verbatim from backbone-hr's hr_write_service.rs).
-        let timeoff_write_service = Arc::new(application::service::TimeoffRequestWriteService::new(db_pool.clone()));
         // END CUSTOM
+
+        // The extension builds its own state from what the generated build made.
+        let ext = self.ext.build(&ModuleParts {
+            db_pool: &db_pool,
+            timeoff_accrual_plan_service: &timeoff_accrual_plan_service,
+            timeoff_accrual_plan_repository: &timeoff_accrual_plan_repository,
+            timeoff_accrual_level_service: &timeoff_accrual_level_service,
+            timeoff_accrual_level_repository: &timeoff_accrual_level_repository,
+            timeoff_balance_service: &timeoff_balance_service,
+            timeoff_balance_repository: &timeoff_balance_repository,
+            timeoff_request_service: &timeoff_request_service,
+            timeoff_request_repository: &timeoff_request_repository,
+            timeoff_type_service: &timeoff_type_service,
+            timeoff_type_repository: &timeoff_type_repository,
+        })?;
 
         Ok(TimeoffModule {
             timeoff_accrual_plan_service,
@@ -267,11 +268,8 @@ impl TimeoffModuleBuilder {
             timeoff_balance_service,
             timeoff_request_service,
             timeoff_type_service,
+            ext,
             // <<< CUSTOM
-            timeoff_request_repository: timeoff_request_repository.clone(),
-            timeoff_balance_repository: timeoff_balance_repository.clone(),
-            timeoff_write_service,
-            db_pool,
             // END CUSTOM
         })
     }
@@ -282,3 +280,6 @@ impl Default for TimeoffModuleBuilder {
         Self::new()
     }
 }
+
+// This directory's extension (hand-written; ADR-0031).
+include!("mod.ext.rs");

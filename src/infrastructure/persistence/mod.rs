@@ -12,10 +12,6 @@ mod timeoff_type_repository;
 
 // Custom persistence modules
 // <<< CUSTOM
-// The accrual walk's SQL (Wave 1 P1, H-2): SKIP LOCKED claim, plan-ladder read,
-// optimistic-guarded grant apply, expiry stamp. User-owned — see
-// metaphor.codegen.yaml.
-mod timeoff_accrual_repository;
 // END CUSTOM
 
 // Re-exports
@@ -34,9 +30,7 @@ pub use backbone_orm::repository::{
 
 // Re-export custom persistence types
 // <<< CUSTOM
-pub use timeoff_accrual_repository::{
-    AccrualLevelRow, AccrualWalkRow, TimeoffAccrualRepository,
-};
-// The submit verb's draft (client-generated id + optional approvals link).
-pub use timeoff_request_repository::TimeoffRequestDraft;
 // END CUSTOM
+
+// This directory's extension (hand-written; ADR-0031).
+include!("mod.ext.rs");
