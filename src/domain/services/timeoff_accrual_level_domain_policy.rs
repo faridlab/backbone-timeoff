@@ -18,5 +18,3 @@ use crate::domain::entity::TimeoffAccrualLevel;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type TimeoffAccrualLevelDomainPolicy = PermitAllPolicy<TimeoffAccrualLevel>;
 
-// <<< CUSTOM
-// END CUSTOM

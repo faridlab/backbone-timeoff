@@ -363,3 +363,4 @@ pub fn create_timeoff_request_history_route(pool: sqlx::PgPool) -> axum::Router 
         .route("/timeoff_requests/:id/history", axum::routing::get(timeoff_request_history))
         .with_state(pool)
 }
+

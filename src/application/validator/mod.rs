@@ -17,5 +17,3 @@ pub use timeoff_balance_validator::{TimeoffBalanceValidator, timeoff_balance_val
 pub use timeoff_request_validator::{TimeoffRequestValidator, timeoff_request_validator};
 pub use timeoff_type_validator::{TimeoffTypeValidator, timeoff_type_validator};
 
-// <<< CUSTOM
-// END CUSTOM

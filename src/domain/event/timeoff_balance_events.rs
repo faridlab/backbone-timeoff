@@ -11,8 +11,6 @@ use crate::domain::entity::TimeoffBalance;
 /// enum containing a `Crud(CrudEvent<TimeoffBalance>)` variant.
 pub type TimeoffBalanceEvent = CrudEvent<TimeoffBalance>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

@@ -330,7 +330,7 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffAccrualLevelDto> for TimeoffAccr
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to TimeoffAccrualLevel here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

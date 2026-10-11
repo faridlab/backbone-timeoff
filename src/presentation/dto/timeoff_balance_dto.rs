@@ -339,7 +339,7 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffBalanceDto> for TimeoffBalance {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to TimeoffBalance here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

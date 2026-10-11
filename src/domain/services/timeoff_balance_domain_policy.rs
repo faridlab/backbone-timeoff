@@ -18,5 +18,3 @@ use crate::domain::entity::TimeoffBalance;
 /// service. `PermitAllPolicy` is the safe default until then.
 pub type TimeoffBalanceDomainPolicy = PermitAllPolicy<TimeoffBalance>;
 
-// <<< CUSTOM
-// END CUSTOM

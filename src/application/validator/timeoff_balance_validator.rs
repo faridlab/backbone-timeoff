@@ -16,9 +16,5 @@ pub type TimeoffBalanceValidator = EntityValidator<TimeoffBalance>;
 pub fn timeoff_balance_validator() -> TimeoffBalanceValidator {
     EntityValidator::new()
         .rule(RequiredString::new("period", |e: &TimeoffBalance| &e.period))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

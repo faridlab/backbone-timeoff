@@ -11,8 +11,6 @@ pub mod timeoff_balance_handler;
 pub mod timeoff_request_handler;
 pub mod timeoff_type_handler;
 
-// <<< CUSTOM
-// END CUSTOM
 
 // Re-exports
 pub use timeoff_accrual_plan_handler::{create_timeoff_accrual_plan_routes, create_timeoff_accrual_plan_read_routes, create_timeoff_accrual_plan_write_routes};
@@ -20,8 +18,6 @@ pub use timeoff_accrual_level_handler::{create_timeoff_accrual_level_routes, cre
 pub use timeoff_balance_handler::{create_timeoff_balance_routes, create_timeoff_balance_read_routes, create_timeoff_balance_write_routes};
 pub use timeoff_request_handler::{create_timeoff_request_routes, create_timeoff_request_read_routes, create_timeoff_request_write_routes, create_timeoff_request_history_route};
 pub use timeoff_type_handler::{create_timeoff_type_routes, create_timeoff_type_read_routes, create_timeoff_type_write_routes};
-// <<< CUSTOM
-// END CUSTOM
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

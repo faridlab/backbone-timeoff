@@ -16,9 +16,5 @@ pub type TimeoffAccrualPlanValidator = EntityValidator<TimeoffAccrualPlan>;
 pub fn timeoff_accrual_plan_validator() -> TimeoffAccrualPlanValidator {
     EntityValidator::new()
         .rule(RequiredString::new("name", |e: &TimeoffAccrualPlan| &e.name))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

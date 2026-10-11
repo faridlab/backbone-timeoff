@@ -11,8 +11,6 @@ mod timeoff_request_repository;
 mod timeoff_type_repository;
 
 // Custom persistence modules
-// <<< CUSTOM
-// END CUSTOM
 
 // Re-exports
 pub use timeoff_accrual_plan_repository::TimeoffAccrualPlanRepository;
@@ -29,8 +27,6 @@ pub use backbone_orm::repository::{
 };
 
 // Re-export custom persistence types
-// <<< CUSTOM
-// END CUSTOM
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

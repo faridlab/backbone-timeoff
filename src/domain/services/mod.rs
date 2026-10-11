@@ -14,5 +14,3 @@ pub use timeoff_balance_domain_policy::TimeoffBalanceDomainPolicy;
 pub use timeoff_request_domain_policy::TimeoffRequestDomainPolicy;
 pub use timeoff_type_domain_policy::TimeoffTypeDomainPolicy;
 
-// <<< CUSTOM
-// END CUSTOM

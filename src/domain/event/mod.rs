@@ -24,5 +24,3 @@ pub use timeoff_request_event_handlers::TimeoffRequestEventHandler;
 pub use timeoff_type_events::{TimeoffTypeEvent, TimeoffTypeEventPublisher, NoopTimeoffTypeEventPublisher};
 pub use timeoff_type_event_handlers::TimeoffTypeEventHandler;
 
-// <<< CUSTOM
-// END CUSTOM

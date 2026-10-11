@@ -12,5 +12,3 @@ pub mod timeoff_balance_specification;
 pub mod timeoff_request_specification;
 pub mod timeoff_type_specification;
 
-// <<< CUSTOM
-// END CUSTOM

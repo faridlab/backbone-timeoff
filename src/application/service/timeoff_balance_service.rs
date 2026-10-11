@@ -32,5 +32,3 @@ pub type TimeoffBalanceService = GenericCrudService<
     TimeoffBalanceRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

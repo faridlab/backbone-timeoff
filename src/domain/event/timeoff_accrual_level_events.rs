@@ -11,8 +11,6 @@ use crate::domain::entity::TimeoffAccrualLevel;
 /// enum containing a `Crud(CrudEvent<TimeoffAccrualLevel>)` variant.
 pub type TimeoffAccrualLevelEvent = CrudEvent<TimeoffAccrualLevel>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

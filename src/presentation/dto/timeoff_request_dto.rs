@@ -363,7 +363,7 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffRequestDto> for TimeoffRequest {
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to TimeoffRequest here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

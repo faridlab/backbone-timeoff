@@ -129,6 +129,4 @@ mod tests {
 // CUSTOM TESTS
 // ============================================================================
 
-// <<< CUSTOM TESTS START >>>
 // Add TimeoffRequest specific tests here
-// <<< CUSTOM TESTS END >>>

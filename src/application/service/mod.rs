@@ -13,16 +13,12 @@ pub mod timeoff_balance_service;
 pub mod timeoff_request_service;
 pub mod timeoff_type_service;
 
-// <<< CUSTOM
-// END CUSTOM
 
 pub use timeoff_accrual_plan_service::TimeoffAccrualPlanService;
 pub use timeoff_accrual_level_service::TimeoffAccrualLevelService;
 pub use timeoff_balance_service::TimeoffBalanceService;
 pub use timeoff_request_service::TimeoffRequestService;
 pub use timeoff_type_service::TimeoffTypeService;
-// <<< CUSTOM
-// END CUSTOM
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

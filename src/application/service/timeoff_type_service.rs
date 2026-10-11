@@ -32,5 +32,3 @@ pub type TimeoffTypeService = GenericCrudService<
     TimeoffTypeRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

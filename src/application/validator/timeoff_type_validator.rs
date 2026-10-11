@@ -17,9 +17,5 @@ pub fn timeoff_type_validator() -> TimeoffTypeValidator {
     EntityValidator::new()
         .rule(RequiredString::new("name", |e: &TimeoffType| &e.name))
         .rule(OptionalNotBlank::new("code", |e: &TimeoffType| e.code.as_deref()))
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
 }
 
-// <<< CUSTOM
-// END CUSTOM

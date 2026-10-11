@@ -124,6 +124,4 @@ mod tests {
 // CUSTOM TESTS
 // ============================================================================
 
-// <<< CUSTOM TESTS START >>>
 // Add TimeoffAccrualLevel specific tests here
-// <<< CUSTOM TESTS END >>>

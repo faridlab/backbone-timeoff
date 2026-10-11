@@ -24,8 +24,6 @@ pub mod application;
 pub mod presentation;
 pub mod seeders;
 pub mod exports;
-// <<< CUSTOM MODULES
-// END CUSTOM
 
 // The module's extension (hand-written; ADR-0031).
 #[path = "lib.ext.rs"]
@@ -80,8 +78,6 @@ pub struct TimeoffModule {
     pub(crate) timeoff_type_service: Arc<TimeoffTypeService>,
     /// The module's extension state (`lib.ext.rs`); its fields read through `Deref`.
     pub(crate) ext: ModuleExt,
-    // <<< CUSTOM FIELDS
-    // END CUSTOM
 }
 
 impl std::ops::Deref for TimeoffModule {
@@ -173,8 +169,6 @@ impl TimeoffModule {
             .merge(create_timeoff_type_read_routes(self.timeoff_type_service.clone()))
     }
 
-    // <<< CUSTOM METHODS
-    // END CUSTOM
 }
 
 /// Builder for TimeoffModule
@@ -182,8 +176,6 @@ pub struct TimeoffModuleBuilder {
     db_pool: Option<PgPool>,
     /// The builder's extension state (`lib.ext.rs`); its fields read through `Deref`.
     ext: ModuleBuilderExt,
-    // <<< CUSTOM BUILDER FIELDS
-    // END CUSTOM
 }
 
 impl std::ops::Deref for TimeoffModuleBuilder {
@@ -205,8 +197,6 @@ impl TimeoffModuleBuilder {
         Self {
             db_pool: None,
             ext: Default::default(),
-            // <<< CUSTOM BUILDER DEFAULTS
-            // END CUSTOM
         }
     }
 
@@ -216,8 +206,6 @@ impl TimeoffModuleBuilder {
         self
     }
 
-    // <<< CUSTOM - custom builder methods
-    // END CUSTOM
 
     /// Build the module with configured dependencies
     pub fn build(self) -> anyhow::Result<TimeoffModule> {
@@ -244,8 +232,6 @@ impl TimeoffModuleBuilder {
         let timeoff_type_repository = Arc::new(TimeoffTypeRepository::new(db_pool.clone()));
         let timeoff_type_service = Arc::new(TimeoffTypeService::with_repository(timeoff_type_repository.clone()));
 
-        // <<< CUSTOM
-        // END CUSTOM
 
         // The extension builds its own state from what the generated build made.
         let ext = self.ext.build(&ModuleParts {
@@ -269,8 +255,6 @@ impl TimeoffModuleBuilder {
             timeoff_request_service,
             timeoff_type_service,
             ext,
-            // <<< CUSTOM
-            // END CUSTOM
         })
     }
 }

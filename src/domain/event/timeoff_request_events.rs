@@ -11,8 +11,6 @@ use crate::domain::entity::TimeoffRequest;
 /// enum containing a `Crud(CrudEvent<TimeoffRequest>)` variant.
 pub type TimeoffRequestEvent = CrudEvent<TimeoffRequest>;
 
-// <<< CUSTOM
-// END CUSTOM
 
 use backbone_messaging::{CrudEventPublisher, NoOpCrudEventPublisher};
 use std::sync::Arc;

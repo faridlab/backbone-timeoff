@@ -32,5 +32,3 @@ pub type TimeoffAccrualLevelService = GenericCrudService<
     TimeoffAccrualLevelRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

@@ -237,7 +237,7 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffAccrualPlanDto> for TimeoffAccru
 // Custom DTOs
 // =============================================================================
 
-// <<< CUSTOM DTOs
 // Add custom DTOs specific to TimeoffAccrualPlan here.
 // This section will be preserved during regeneration.
 // >>> END CUSTOM DTOs
+

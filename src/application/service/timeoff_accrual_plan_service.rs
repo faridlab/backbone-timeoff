@@ -32,5 +32,3 @@ pub type TimeoffAccrualPlanService = GenericCrudService<
     TimeoffAccrualPlanRepository,
 >;
 
-// <<< CUSTOM
-// END CUSTOM

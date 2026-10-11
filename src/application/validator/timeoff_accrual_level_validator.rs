@@ -15,10 +15,6 @@ pub type TimeoffAccrualLevelValidator = EntityValidator<TimeoffAccrualLevel>;
 /// Build a validator for TimeoffAccrualLevel with all schema-defined field rules.
 pub fn timeoff_accrual_level_validator() -> TimeoffAccrualLevelValidator {
     EntityValidator::new()
-    // <<< CUSTOM RULES
-    // END CUSTOM RULES
         // No schema-derived rules — add custom rules above.
 }
 
-// <<< CUSTOM
-// END CUSTOM

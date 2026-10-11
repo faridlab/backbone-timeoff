@@ -221,8 +221,6 @@ impl TimeoffBalance {
         }
     }
 
-    // <<< CUSTOM METHODS START >>>
-    // <<< CUSTOM METHODS END >>>
 }
 
 impl super::Entity for TimeoffBalance {
