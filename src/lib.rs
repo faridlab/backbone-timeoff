@@ -226,7 +226,7 @@ impl TimeoffModuleBuilder {
 
         // TimeoffRequest service
         let timeoff_request_repository = Arc::new(TimeoffRequestRepository::new(db_pool.clone()));
-        let timeoff_request_service = Arc::new(TimeoffRequestService::with_repository(timeoff_request_repository.clone()));
+        let timeoff_request_service = Arc::new(TimeoffRequestService::with_repository(timeoff_request_repository.clone()).with_guard(Arc::new(crate::application::service::TimeoffRequestRowRules)));
 
         // TimeoffType service
         let timeoff_type_repository = Arc::new(TimeoffTypeRepository::new(db_pool.clone()));

@@ -17,6 +17,7 @@ version: 2
 state_machines:
   - entity: TimeoffRequest
     field: status
+    verbs: hand
     lifecycle: hand_set
     description: >
       Hand-set per ADR-0016: transitions are writes by the decision verbs, never

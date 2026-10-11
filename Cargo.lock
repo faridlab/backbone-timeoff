@@ -197,9 +197,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-auth"
-version = "3.0.2"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ebd29d29bc34d53b6fbb56971efc2058541f2a012d37d55f4d478b2e1e79396"
+checksum = "6586bb70b22e7a713ac0017acb163f6332992c66f739bc3db88dcabdf2513f9b"
 dependencies = [
  "anyhow",
  "argon2",
@@ -225,9 +225,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-core"
-version = "3.0.2"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "014a7e82f5dca3c736f52e76e5a570cea732074a8e68d03bc702516a6e05a3b0"
+checksum = "6f486f9104d726363dedf30609d30295c99d59553efcad2aa077d8d2a668d46b"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -253,9 +253,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-messaging"
-version = "3.0.2"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bed61d9ea9eb72f7d5a5097568b67594e00cebe30a7e142c3a131479e549bcb"
+checksum = "b6be4fcba37bbfc3eed1650b59ee17aa9a9cbbc8da77454ed741864ee352bd41"
 dependencies = [
  "async-trait",
  "chrono",
@@ -269,9 +269,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-orm"
-version = "3.0.2"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20cfc6f1d2ef0ed4c2ff54bb69277bf38b1cb6011eb7877d8fbacdd452121c49"
+checksum = "8731707b9ee4dc00bcc1969701ee5d5d6b5b7844dc5335335057b54efd8d7ef5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -289,9 +289,9 @@ dependencies = [
 
 [[package]]
 name = "backbone-outbox"
-version = "3.0.2"
+version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be830bcf69bb398754a61455f6b1c74dc62443f905e593da75452f7e0d418234"
+checksum = "736ee8c825277b66acaec425eb972c73606c28db66c0d2fe72ee6e4df0315eeb"
 dependencies = [
  "chrono",
  "serde",
@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "backbone-timeoff"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "async-trait",
