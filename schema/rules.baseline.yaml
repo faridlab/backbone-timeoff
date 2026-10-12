@@ -1,10 +1,9 @@
 # The rule ratchet (schema doctor): these counts may only go down. Regenerate with
 # `metaphor schema rules . --update-baseline` after enforcing a rule.
-unenforced: 3
-warnings: 3
+unenforced: 2
+warnings: 0
 machines_without_verbs: 0
 untested_rule_ids: 0
 unenforced_rules:
-- 'timeoff_request.hook.yaml: approve_gated_on_balance'
 - 'timeoff_request.hook.yaml: approve_gated_on_linked_approval'
 - 'timeoff_request.hook.yaml: cancel_restores_balance'

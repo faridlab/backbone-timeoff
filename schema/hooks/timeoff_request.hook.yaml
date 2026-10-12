@@ -36,16 +36,23 @@ state_machines:
 rules:
   - id: TR1
     name: approve_gated_on_balance
+    entity: TimeoffRequest
     when: "approve_request commits"
     assert: "used + days <= allocated for (employee, timeoff_type, period) — the draw and the transition are ONE transaction"
     error_code: insufficient_timeoff_balance
+    enforced_by: "src/infrastructure/persistence/timeoff_balance_repository.rs::draw, src/application/service/timeoff_request_service_custom.rs::approve_request, migrations/20260426220010_timeoff_balance_guards.up.sql::timeoff_balances_used_within_allocated"
+    justification: "The draw and the approval share one transaction and the draw re-checks used + days <= allocated in its own WHERE, so concurrent approvals cannot overdraw; the refusal answers insufficient_balance rather than the declared insufficient_timeoff_balance, and an approval settled at submit (approved outright by the engine) reads the uncommitted row on another connection and fails the submit."
   - id: TR2
     name: approve_gated_on_linked_approval
+    entity: TimeoffRequest
     when: "the request carries approval_request_id and the approvals seam is wired"
     assert: "the linked ApprovalRequest's status is approved"
     error_code: approval_not_granted
+    justification: "PARTLY: approve_request refuses unless the linked approval is approved, but a request with no approval link is approved without it, the approver stamp is taken from the request body, and reject and pending-cancel never consult the engine."
   - id: TR3
     name: cancel_restores_balance
+    entity: TimeoffRequest
     when: "an approved request is cancelled"
     assert: "the drawn days are restored in the same transaction, gated on used >= days"
     error_code: cannot_restore_timeoff_balance
+    justification: "PARTLY: cancel_request restores the days in the cancel transaction gated on used >= days, but the amount and year are recomputed from the current row rather than the draw, an already-taken leave can be cancelled and its days restored, and a refused restore answers invalid_state, never cannot_restore_timeoff_balance."
