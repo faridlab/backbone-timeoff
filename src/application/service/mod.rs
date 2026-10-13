@@ -19,7 +19,11 @@ pub use timeoff_accrual_level_service::TimeoffAccrualLevelService;
 pub use timeoff_balance_service::TimeoffBalanceService;
 pub use timeoff_request_service::TimeoffRequestService;
 pub use timeoff_type_service::TimeoffTypeService;
+pub use timeoff_accrual_plan_service::TimeoffAccrualPlanRowRules;
+pub use timeoff_accrual_level_service::TimeoffAccrualLevelRowRules;
+pub use timeoff_balance_service::TimeoffBalanceRowRules;
 pub use timeoff_request_service::TimeoffRequestRowRules;
+pub use timeoff_type_service::TimeoffTypeRowRules;
 
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");

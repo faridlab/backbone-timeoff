@@ -32,9 +32,10 @@ pub type TimeoffRequestService = GenericCrudService<
     TimeoffRequestRepository,
 >;
 
-/// The row rules the schema declares for TimeoffRequest, checked against the row a create or
-/// update would store. The generated build attaches it to [`TimeoffRequestService`]. Every rule
-/// runs in shadow: a break is logged under `backbone::write_guard` and the write goes ahead.
+/// The rules the schema declares for TimeoffRequest, checked against the row a create or update
+/// would store. The generated build attaches it to [`TimeoffRequestService`]. A refusing rule's
+/// break answers 422; a rule in shadow is logged under `backbone::write_guard` and the
+/// write goes ahead.
 pub struct TimeoffRequestRowRules;
 
 #[async_trait::async_trait]
@@ -56,11 +57,32 @@ impl backbone_core::write_guard::WriteGuard<TimeoffRequest> for TimeoffRequestRo
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
         let mut shadow = Vec::new();
+        let mut refuse = Vec::new();
         // `status` belongs to a state machine: only its verbs move it
         if update && ctx.transition.is_none() && r::changed(old.as_ref(), row, &["status"]) {
             shadow.push(Violation::new("status", "state_field_verbs_only", "the state field moves only through its verbs"));
         }
-        GuardOutcome { refuse: Vec::new(), shadow }
+        // `timeoff_type_id_required` (@required on TimeoffRequest.timeoff_type_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["timeoff_type_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "timeoff_type_id")), r::not(r::is_empty(r::trim(r::field(row, "timeoff_type_id")))))) {
+            refuse.push(Violation::new("timeoff_type_id", "required", "timeoff_type_id is required"));
+        }
+        // `employee_id_required` (@required on TimeoffRequest.employee_id)
+        if (create || (update && r::changed(old.as_ref(), row, &["employee_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "employee_id")), r::not(r::is_empty(r::trim(r::field(row, "employee_id")))))) {
+            refuse.push(Violation::new("employee_id", "required", "employee_id is required"));
+        }
+        // `note_max_length` (@max(1000) on TimeoffRequest.note)
+        if (create || (update && r::changed(old.as_ref(), row, &["note"]))) && !r::holds(&r::le(r::length(r::field(row, "note")), r::Val::Num(1000.0_f64))) {
+            shadow.push(Violation::new("note", "max_length", "note must be at most 1000 characters").with_param("max", 1000_i64));
+        }
+        // `attachment_note_max_length` (@max(255) on TimeoffRequest.attachment_note)
+        if (create || (update && r::changed(old.as_ref(), row, &["attachment_note"]))) && !r::holds(&r::le(r::length(r::field(row, "attachment_note")), r::Val::Num(255.0_f64))) {
+            shadow.push(Violation::new("attachment_note", "max_length", "attachment_note must be at most 255 characters").with_param("max", 255_i64));
+        }
+        // `note_reject_max_length` (@max(1000) on TimeoffRequest.note_reject)
+        if (create || (update && r::changed(old.as_ref(), row, &["note_reject"]))) && !r::holds(&r::le(r::length(r::field(row, "note_reject")), r::Val::Num(1000.0_f64))) {
+            shadow.push(Violation::new("note_reject", "max_length", "note_reject must be at most 1000 characters").with_param("max", 1000_i64));
+        }
+        GuardOutcome { refuse, shadow }
     }
 }
 
