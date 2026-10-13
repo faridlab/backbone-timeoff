@@ -194,6 +194,9 @@ impl backbone_orm::EntityRepoMeta for TimeoffAccrualPlan {
     fn search_fields() -> &'static [&'static str] {
         &["name"]
     }
+    fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
+        &[("timeoffType", "timeoff_types", "timeoffTypeId")]
+    }
 }
 
 /// Builder for TimeoffAccrualPlan entity

@@ -280,6 +280,9 @@ impl backbone_orm::EntityRepoMeta for TimeoffBalance {
     fn search_fields() -> &'static [&'static str] {
         &["period"]
     }
+    fn relations() -> &'static [(&'static str, &'static str, &'static str)] {
+        &[("timeoffType", "timeoff_types", "timeoffTypeId"), ("accrualPlan", "timeoff_accrual_plans", "accrualPlanId")]
+    }
 }
 
 /// Builder for TimeoffBalance entity
