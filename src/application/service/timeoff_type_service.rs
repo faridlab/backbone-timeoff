@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<TimeoffType> for TimeoffTypeRowRules
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `name_required` (@required on TimeoffType.name)
         if (create || (update && r::changed(old.as_ref(), row, &["name"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "name")), r::not(r::is_empty(r::trim(r::field(row, "name")))))) {
@@ -64,11 +64,11 @@ impl backbone_core::write_guard::WriteGuard<TimeoffType> for TimeoffTypeRowRules
         }
         // `name_max_length` (@max(120) on TimeoffType.name)
         if (create || (update && r::changed(old.as_ref(), row, &["name"]))) && !r::holds(&r::le(r::length(r::field(row, "name")), r::Val::Num(120.0_f64))) {
-            shadow.push(Violation::new("name", "max_length", "name must be at most 120 characters").with_param("max", 120_i64));
+            refuse.push(Violation::new("name", "max_length", "name must be at most 120 characters").with_param("max", 120_i64));
         }
         // `code_max_length` (@max(40) on TimeoffType.code)
         if (create || (update && r::changed(old.as_ref(), row, &["code"]))) && !r::holds(&r::le(r::length(r::field(row, "code")), r::Val::Num(40.0_f64))) {
-            shadow.push(Violation::new("code", "max_length", "code must be at most 40 characters").with_param("max", 40_i64));
+            refuse.push(Violation::new("code", "max_length", "code must be at most 40 characters").with_param("max", 40_i64));
         }
         GuardOutcome { refuse, shadow }
     }

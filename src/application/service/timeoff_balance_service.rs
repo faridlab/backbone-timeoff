@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<TimeoffBalance> for TimeoffBalanceRo
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `timeoff_type_id_required` (@required on TimeoffBalance.timeoff_type_id)
         if (create || (update && r::changed(old.as_ref(), row, &["timeoff_type_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "timeoff_type_id")), r::not(r::is_empty(r::trim(r::field(row, "timeoff_type_id")))))) {
@@ -72,19 +72,19 @@ impl backbone_core::write_guard::WriteGuard<TimeoffBalance> for TimeoffBalanceRo
         }
         // `period_max_length` (@max(10) on TimeoffBalance.period)
         if (create || (update && r::changed(old.as_ref(), row, &["period"]))) && !r::holds(&r::le(r::length(r::field(row, "period")), r::Val::Num(10.0_f64))) {
-            shadow.push(Violation::new("period", "max_length", "period must be at most 10 characters").with_param("max", 10_i64));
+            refuse.push(Violation::new("period", "max_length", "period must be at most 10 characters").with_param("max", 10_i64));
         }
         // `allocated_non_negative` (@non_negative on TimeoffBalance.allocated)
         if (create || (update && r::changed(old.as_ref(), row, &["allocated"]))) && !r::holds(&r::ge(r::field(row, "allocated"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("allocated", "non_negative", "allocated must not be negative"));
+            refuse.push(Violation::new("allocated", "non_negative", "allocated must not be negative"));
         }
         // `used_non_negative` (@non_negative on TimeoffBalance.used)
         if (create || (update && r::changed(old.as_ref(), row, &["used"]))) && !r::holds(&r::ge(r::field(row, "used"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("used", "non_negative", "used must not be negative"));
+            refuse.push(Violation::new("used", "non_negative", "used must not be negative"));
         }
         // `carried_over_non_negative` (@non_negative on TimeoffBalance.carried_over)
         if (create || (update && r::changed(old.as_ref(), row, &["carried_over"]))) && !r::holds(&r::ge(r::field(row, "carried_over"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("carried_over", "non_negative", "carried_over must not be negative"));
+            refuse.push(Violation::new("carried_over", "non_negative", "carried_over must not be negative"));
         }
         GuardOutcome { refuse, shadow }
     }

@@ -56,7 +56,7 @@ impl backbone_core::write_guard::WriteGuard<TimeoffAccrualLevel> for TimeoffAccr
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
-        let mut shadow = Vec::new();
+        let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `plan_id_required` (@required on TimeoffAccrualLevel.plan_id)
         if (create || (update && r::changed(old.as_ref(), row, &["plan_id"]))) && !r::holds(&r::and(r::is_not_null(r::field(row, "plan_id")), r::not(r::is_empty(r::trim(r::field(row, "plan_id")))))) {
@@ -64,19 +64,19 @@ impl backbone_core::write_guard::WriteGuard<TimeoffAccrualLevel> for TimeoffAccr
         }
         // `start_count_non_negative` (@non_negative on TimeoffAccrualLevel.start_count)
         if (create || (update && r::changed(old.as_ref(), row, &["start_count"]))) && !r::holds(&r::ge(r::field(row, "start_count"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("start_count", "non_negative", "start_count must not be negative"));
+            refuse.push(Violation::new("start_count", "non_negative", "start_count must not be negative"));
         }
         // `added_value_non_negative` (@non_negative on TimeoffAccrualLevel.added_value)
         if (create || (update && r::changed(old.as_ref(), row, &["added_value"]))) && !r::holds(&r::ge(r::field(row, "added_value"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("added_value", "non_negative", "added_value must not be negative"));
+            refuse.push(Violation::new("added_value", "non_negative", "added_value must not be negative"));
         }
         // `maximum_leave_non_negative` (@non_negative on TimeoffAccrualLevel.maximum_leave)
         if (create || (update && r::changed(old.as_ref(), row, &["maximum_leave"]))) && !r::holds(&r::ge(r::field(row, "maximum_leave"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("maximum_leave", "non_negative", "maximum_leave must not be negative"));
+            refuse.push(Violation::new("maximum_leave", "non_negative", "maximum_leave must not be negative"));
         }
         // `postponed_max_days_non_negative` (@non_negative on TimeoffAccrualLevel.postponed_max_days)
         if (create || (update && r::changed(old.as_ref(), row, &["postponed_max_days"]))) && !r::holds(&r::ge(r::field(row, "postponed_max_days"), r::Val::Num(0.0_f64))) {
-            shadow.push(Violation::new("postponed_max_days", "non_negative", "postponed_max_days must not be negative"));
+            refuse.push(Violation::new("postponed_max_days", "non_negative", "postponed_max_days must not be negative"));
         }
         GuardOutcome { refuse, shadow }
     }

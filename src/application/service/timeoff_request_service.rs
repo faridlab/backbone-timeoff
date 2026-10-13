@@ -72,15 +72,15 @@ impl backbone_core::write_guard::WriteGuard<TimeoffRequest> for TimeoffRequestRo
         }
         // `note_max_length` (@max(1000) on TimeoffRequest.note)
         if (create || (update && r::changed(old.as_ref(), row, &["note"]))) && !r::holds(&r::le(r::length(r::field(row, "note")), r::Val::Num(1000.0_f64))) {
-            shadow.push(Violation::new("note", "max_length", "note must be at most 1000 characters").with_param("max", 1000_i64));
+            refuse.push(Violation::new("note", "max_length", "note must be at most 1000 characters").with_param("max", 1000_i64));
         }
         // `attachment_note_max_length` (@max(255) on TimeoffRequest.attachment_note)
         if (create || (update && r::changed(old.as_ref(), row, &["attachment_note"]))) && !r::holds(&r::le(r::length(r::field(row, "attachment_note")), r::Val::Num(255.0_f64))) {
-            shadow.push(Violation::new("attachment_note", "max_length", "attachment_note must be at most 255 characters").with_param("max", 255_i64));
+            refuse.push(Violation::new("attachment_note", "max_length", "attachment_note must be at most 255 characters").with_param("max", 255_i64));
         }
         // `note_reject_max_length` (@max(1000) on TimeoffRequest.note_reject)
         if (create || (update && r::changed(old.as_ref(), row, &["note_reject"]))) && !r::holds(&r::le(r::length(r::field(row, "note_reject")), r::Val::Num(1000.0_f64))) {
-            shadow.push(Violation::new("note_reject", "max_length", "note_reject must be at most 1000 characters").with_param("max", 1000_i64));
+            refuse.push(Violation::new("note_reject", "max_length", "note_reject must be at most 1000 characters").with_param("max", 1000_i64));
         }
         GuardOutcome { refuse, shadow }
     }
