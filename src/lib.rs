@@ -208,23 +208,23 @@ impl TimeoffModuleBuilder {
 
         // TimeoffAccrualPlan service
         let timeoff_accrual_plan_repository = Arc::new(TimeoffAccrualPlanRepository::new(db_pool.clone()));
-        let timeoff_accrual_plan_service = Arc::new(TimeoffAccrualPlanService::with_repository(timeoff_accrual_plan_repository.clone()).with_guard(Arc::new(crate::application::service::TimeoffAccrualPlanRowRules)));
+        let timeoff_accrual_plan_service = Arc::new(crate::application::service::build_timeoff_accrual_plan_service(timeoff_accrual_plan_repository.clone()));
 
         // TimeoffAccrualLevel service
         let timeoff_accrual_level_repository = Arc::new(TimeoffAccrualLevelRepository::new(db_pool.clone()));
-        let timeoff_accrual_level_service = Arc::new(TimeoffAccrualLevelService::with_repository(timeoff_accrual_level_repository.clone()).with_guard(Arc::new(crate::application::service::TimeoffAccrualLevelRowRules)));
+        let timeoff_accrual_level_service = Arc::new(crate::application::service::build_timeoff_accrual_level_service(timeoff_accrual_level_repository.clone()));
 
         // TimeoffBalance service
         let timeoff_balance_repository = Arc::new(TimeoffBalanceRepository::new(db_pool.clone()));
-        let timeoff_balance_service = Arc::new(TimeoffBalanceService::with_repository(timeoff_balance_repository.clone()).with_guard(Arc::new(crate::application::service::TimeoffBalanceRowRules)));
+        let timeoff_balance_service = Arc::new(crate::application::service::build_timeoff_balance_service(timeoff_balance_repository.clone()));
 
         // TimeoffRequest service
         let timeoff_request_repository = Arc::new(TimeoffRequestRepository::new(db_pool.clone()));
-        let timeoff_request_service = Arc::new(TimeoffRequestService::with_repository(timeoff_request_repository.clone()).with_guard(Arc::new(crate::application::service::TimeoffRequestRowRules)));
+        let timeoff_request_service = Arc::new(crate::application::service::build_timeoff_request_service(timeoff_request_repository.clone()));
 
         // TimeoffType service
         let timeoff_type_repository = Arc::new(TimeoffTypeRepository::new(db_pool.clone()));
-        let timeoff_type_service = Arc::new(TimeoffTypeService::with_repository(timeoff_type_repository.clone()).with_guard(Arc::new(crate::application::service::TimeoffTypeRowRules)));
+        let timeoff_type_service = Arc::new(crate::application::service::build_timeoff_type_service(timeoff_type_repository.clone()));
 
 
         // The extension builds its own state from what the generated build made.

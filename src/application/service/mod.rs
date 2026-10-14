@@ -25,5 +25,45 @@ pub use timeoff_balance_service::TimeoffBalanceRowRules;
 pub use timeoff_request_service::TimeoffRequestRowRules;
 pub use timeoff_type_service::TimeoffTypeRowRules;
 
+/// A `TimeoffAccrualPlanService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_timeoff_accrual_plan_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::TimeoffAccrualPlanRepository>,
+) -> TimeoffAccrualPlanService {
+    TimeoffAccrualPlanService::with_repository(repository).with_guard(std::sync::Arc::new(TimeoffAccrualPlanRowRules))
+}
+
+/// A `TimeoffAccrualLevelService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_timeoff_accrual_level_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::TimeoffAccrualLevelRepository>,
+) -> TimeoffAccrualLevelService {
+    TimeoffAccrualLevelService::with_repository(repository).with_guard(std::sync::Arc::new(TimeoffAccrualLevelRowRules))
+}
+
+/// A `TimeoffBalanceService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_timeoff_balance_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::TimeoffBalanceRepository>,
+) -> TimeoffBalanceService {
+    TimeoffBalanceService::with_repository(repository).with_guard(std::sync::Arc::new(TimeoffBalanceRowRules))
+}
+
+/// A `TimeoffRequestService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_timeoff_request_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::TimeoffRequestRepository>,
+) -> TimeoffRequestService {
+    TimeoffRequestService::with_repository(repository).with_guard(std::sync::Arc::new(TimeoffRequestRowRules))
+}
+
+/// A `TimeoffTypeService` over `repository` with its write guard attached: the way to build it, so its writes are
+/// served only with the rules the schema declares.
+pub fn build_timeoff_type_service(
+    repository: std::sync::Arc<crate::infrastructure::persistence::TimeoffTypeRepository>,
+) -> TimeoffTypeService {
+    TimeoffTypeService::with_repository(repository).with_guard(std::sync::Arc::new(TimeoffTypeRowRules))
+}
+
 // This directory's extension (hand-written; ADR-0031).
 include!("mod.ext.rs");
