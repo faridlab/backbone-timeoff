@@ -41,7 +41,7 @@ rules:
     assert: "used + days <= allocated for (employee, timeoff_type, period) — the draw and the transition are ONE transaction"
     error_code: insufficient_timeoff_balance
     enforced_by: "src/infrastructure/persistence/timeoff_balance_repository.rs::draw, src/application/service/timeoff_request_service_custom.rs::approve_request, migrations/20260426220010_timeoff_balance_guards.up.sql::timeoff_balances_used_within_allocated"
-    justification: "The draw and the approval share one transaction and the draw re-checks used + days <= allocated in its own WHERE, so concurrent approvals cannot overdraw; the refusal answers insufficient_balance rather than the declared insufficient_timeoff_balance, and an approval settled at submit (approved outright by the engine) reads the uncommitted row on another connection and fails the submit."
+    justification: "The draw and the approval share one transaction and the draw re-checks used + days <= allocated in its own WHERE, so concurrent approvals cannot overdraw; the refusal answers insufficient_timeoff_balance; still open: an approval settled at submit (approved outright by the engine) reads the uncommitted row on another connection and fails the submit."
   - id: TR2
     name: approve_gated_on_linked_approval
     entity: TimeoffRequest
@@ -49,10 +49,19 @@ rules:
     assert: "the linked ApprovalRequest's status is approved"
     error_code: approval_not_granted
     justification: "PARTLY: approve_request refuses unless the linked approval is approved, but a request with no approval link is approved without it, the approver stamp is taken from the request body, and reject and pending-cancel never consult the engine."
+  - id: TR3a
+    name: approved_request_terms_frozen
+    entity: TimeoffRequest
+    when: [update]
+    condition: "$old.status != 'approved' || (employee_id == $old.employee_id && timeoff_type_id == $old.timeoff_type_id && date_start == $old.date_start && date_end == $old.date_end && part == $old.part)"
+    message: "An approved request keeps the employee, type, dates and part its balance was drawn for; cancel it and submit a new one."
+    code: approved_request_terms_frozen
+    severity: error
+    justification: "The days a request draws are a function of its part and dates, and the period is the year of its start, so freezing these once approved is what makes a cancel restore exactly what was drawn."
   - id: TR3
     name: cancel_restores_balance
     entity: TimeoffRequest
     when: "an approved request is cancelled"
     assert: "the drawn days are restored in the same transaction, gated on used >= days"
     error_code: cannot_restore_timeoff_balance
-    justification: "PARTLY: cancel_request restores the days in the cancel transaction gated on used >= days, but the amount and year are recomputed from the current row rather than the draw, an already-taken leave can be cancelled and its days restored, and a refused restore answers invalid_state, never cannot_restore_timeoff_balance."
+    justification: "PARTLY: cancel_request restores the days in the cancel transaction gated on used >= days, and a refused restore answers cannot_restore_timeoff_balance; the amount and year it restores are those the approval drew, since approved_request_terms_frozen keeps the dates, part, type and employee they derive from. Still open: an already-taken leave can be cancelled and its days restored."

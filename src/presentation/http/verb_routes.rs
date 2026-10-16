@@ -35,7 +35,8 @@ fn err_response(e: TimeoffError) -> Response {
     let (status, code) = match &e {
         NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
         InvalidState(_) => (StatusCode::CONFLICT, "invalid_state"),
-        InsufficientBalance => (StatusCode::CONFLICT, "insufficient_balance"),
+        InsufficientBalance => (StatusCode::CONFLICT, "insufficient_timeoff_balance"),
+        CannotRestoreBalance => (StatusCode::CONFLICT, "cannot_restore_timeoff_balance"),
         ApprovalNotGranted => (StatusCode::CONFLICT, "approval_not_granted"),
         NoCompanyScope => (StatusCode::INTERNAL_SERVER_ERROR, "no_org_scope"),
         ApprovalSeam(_) => (StatusCode::INTERNAL_SERVER_ERROR, "approvals_seam_error"),

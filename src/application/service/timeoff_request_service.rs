@@ -56,6 +56,7 @@ impl backbone_core::write_guard::WriteGuard<TimeoffRequest> for TimeoffRequestRo
         };
         let row = &row;
         let old = ctx.before.and_then(|b| serde_json::to_value(b).ok());
+        let old_row = old.as_ref().unwrap_or(&serde_json::Value::Null);
         let shadow = Vec::new();
         let mut refuse = Vec::new();
         // `status` belongs to a state machine: only its verbs move it
@@ -81,6 +82,10 @@ impl backbone_core::write_guard::WriteGuard<TimeoffRequest> for TimeoffRequestRo
         // `note_reject_max_length` (@max(1000) on TimeoffRequest.note_reject)
         if (create || (update && r::changed(old.as_ref(), row, &["note_reject"]))) && !r::holds(&r::le(r::length(r::field(row, "note_reject")), r::Val::Num(1000.0_f64))) {
             refuse.push(Violation::new("note_reject", "max_length", "note_reject must be at most 1000 characters").with_param("max", 1000_i64));
+        }
+        // `approved_request_terms_frozen` (timeoff_request.hook.yaml:52)
+        if (update) && !r::holds(&r::or(r::ne(r::field(old_row, "status"), r::text("approved")), r::and(r::and(r::and(r::and(r::eq(r::field(row, "employee_id"), r::field(old_row, "employee_id")), r::eq(r::field(row, "timeoff_type_id"), r::field(old_row, "timeoff_type_id"))), r::eq(r::field(row, "date_start"), r::field(old_row, "date_start"))), r::eq(r::field(row, "date_end"), r::field(old_row, "date_end"))), r::eq(r::field(row, "part"), r::field(old_row, "part"))))) {
+            refuse.push(Violation::new("status", "approved_request_terms_frozen", "An approved request keeps the employee, type, dates and part its balance was drawn for; cancel it and submit a new one."));
         }
         GuardOutcome { refuse, shadow }
     }

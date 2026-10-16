@@ -52,8 +52,8 @@ impl TimeoffBalanceRepository {
     /// validity window (Wave 1 P1, H-2): the row moves only if
     /// `used + days <= allocated` and the request's `[date_start, date_end]`
     /// falls inside the balance's `[date_from, date_to]` (either bound open when
-    /// NULL — a manually-granted balance has no window). Returns rows affected:
-    /// 0 = insufficient (or missing or window-missed) balance, and the caller
+    /// NULL — a manually-granted balance has no window). Returns the balance drawn from;
+    /// `None` = insufficient (or missing or window-missed) balance, and the caller
     /// must roll back. This gate IS the invariant — you cannot approve leave you
     /// don't have or spend an allocation outside its validity.
     ///
@@ -69,21 +69,22 @@ impl TimeoffBalanceRepository {
         days: Decimal,
         date_start: chrono::NaiveDate,
         date_end: chrono::NaiveDate,
-    ) -> Result<u64, sqlx::Error> {
-        let done = sqlx::query(
+    ) -> Result<Option<Uuid>, sqlx::Error> {
+        sqlx::query_scalar(
             r#"UPDATE timeoff.timeoff_balances SET used = used + $4
                WHERE employee_id=$1 AND timeoff_type_id=$2 AND period=$3 AND used + $4 <= allocated
                  AND (date_from IS NULL OR date_from <= $5)
-                 AND (date_to   IS NULL OR date_to   >= $6)"#,
+                 AND (date_to   IS NULL OR date_to   >= $6)
+               RETURNING id"#,
         )
         .bind(employee_id).bind(timeoff_type_id).bind(period).bind(days)
         .bind(date_start).bind(date_end)
-        .execute(conn)
-        .await?;
-        Ok(done.rows_affected())
+        .fetch_optional(conn)
+        .await
     }
 
-    /// Restore a drawn-down balance on cancellation. Returns rows affected: 0 = the caller must roll back.
+    /// Restore a drawn-down balance on cancellation. Returns the balance restored; `None` = the caller
+    /// must roll back.
     ///
     /// GATED on `used >= days` so a tampered request (its `days` mutated after approval via the
     /// generic PATCH surface) can never drive `used` negative and manufacture phantom entitlement.
@@ -98,15 +99,15 @@ impl TimeoffBalanceRepository {
         timeoff_type_id: Uuid,
         period: &str,
         days: Decimal,
-    ) -> Result<u64, sqlx::Error> {
-        let done = sqlx::query(
+    ) -> Result<Option<Uuid>, sqlx::Error> {
+        sqlx::query_scalar(
             r#"UPDATE timeoff.timeoff_balances SET used = used - $4
-               WHERE employee_id=$1 AND timeoff_type_id=$2 AND period=$3 AND used >= $4"#,
+               WHERE employee_id=$1 AND timeoff_type_id=$2 AND period=$3 AND used >= $4
+               RETURNING id"#,
         )
         .bind(employee_id).bind(timeoff_type_id).bind(period).bind(days)
-        .execute(conn)
-        .await?;
-        Ok(done.rows_affected())
+        .fetch_optional(conn)
+        .await
     }
 }
 

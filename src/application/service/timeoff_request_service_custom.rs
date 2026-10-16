@@ -41,6 +41,10 @@ pub enum TimeoffError {
     InvalidState(&'static str),
     #[error("insufficient timeoff balance")]
     InsufficientBalance,
+    /// Cancelling an approved request could not give its days back: the balance it drew from no
+    /// longer covers them.
+    #[error("cannot restore timeoff balance: the request's days exceed what its balance holds as used")]
+    CannotRestoreBalance,
     #[error("no org scope bound: the composing service must resolve one for this request")]
     NoCompanyScope,
     /// TR2 (Wave 1 P1): the request is linked to an approvals.ApprovalRequest
@@ -290,7 +294,7 @@ impl TimeoffRequestWriteService {
         let drawn = self.balances
             .draw(&mut *tx, employee_id, timeoff_type_id, &period, days, date_start, date_end)
             .await?;
-        if drawn != 1 {
+        if drawn.is_none() {
             return Err(TimeoffError::InsufficientBalance);
         }
         let settlement =
@@ -380,7 +384,7 @@ impl TimeoffRequestWriteService {
         let drawn = self.balances
             .draw(&mut tx, employee_id, timeoff_type_id, &period, days, date_start, date_end)
             .await?;
-        if drawn != 1 {
+        if drawn.is_none() {
             tx.rollback().await?;
             return Err(TimeoffError::InsufficientBalance);
         }
@@ -579,11 +583,9 @@ impl TimeoffRequestWriteService {
         let restored = self.balances
             .restore(&mut tx, employee_id, timeoff_type_id, &period, days)
             .await?;
-        if restored != 1 {
+        if restored.is_none() {
             tx.rollback().await?;
-            return Err(TimeoffError::InvalidState(
-                "cannot restore timeoff balance — the request's days exceed what was drawn",
-            ));
+            return Err(TimeoffError::CannotRestoreBalance);
         }
         tx.commit().await?;
         self.settle(
