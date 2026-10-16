@@ -39,7 +39,7 @@ uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 # Money/quantities — near-universal in domain modules. Generated code for any `decimal`
 # field imports rust_decimal, so ship it (and the matching sqlx feature) by default.
-rust_decimal = { version = "1.36", features = ["serde", "serde-float"] }
+rust_decimal = { version = "1.36", features = ["serde", "serde-with-float"] }
 
 # Database (PostgreSQL primary)
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "rust_decimal"] }
