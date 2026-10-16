@@ -55,7 +55,6 @@ pub struct CreateTimeoffRequestDto {
     pub approval_request_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "note_reject")]
     pub note_reject: Option<String>,
-    pub status: TimeoffRequestStatus,
 }
 
 // =============================================================================
@@ -293,7 +292,7 @@ impl From<CreateTimeoffRequestDto> for TimeoffRequest {
             approval_employee_id: dto.approval_employee_id,
             approval_request_id: dto.approval_request_id,
             note_reject: dto.note_reject,
-            status: dto.status,
+            status: TimeoffRequestStatus::Pending,
             metadata: AuditMetadata::default(),
         }
     }
