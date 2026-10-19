@@ -156,6 +156,12 @@ impl super::Entity for TimeoffAccrualPlan {
 }
 
 impl backbone_core::PersistentEntity for TimeoffAccrualPlan {
+    fn references() -> &'static [backbone_core::Reference] {
+        const REFERENCES: &[backbone_core::Reference] = &[
+            backbone_core::Reference::new("timeoff_type_id", "timeoff.timeoff_types", "id"),
+        ];
+        REFERENCES
+    }
     fn entity_id(&self) -> String {
         self.id.to_string()
     }

@@ -37,22 +37,35 @@ pub struct CreateTimeoffAccrualLevelDto {
     pub plan_id: Uuid,
     #[cfg_attr(feature = "openapi", schema(example = 42))]
     pub sequence: i32,
-    #[serde(alias = "start_count")]
+    #[serde(default, alias = "start_count")]
     pub start_count: Decimal,
-    #[serde(alias = "start_type")]
+    #[serde(default = "default_create_timeoff_accrual_level_start_type", alias = "start_type")]
     pub start_type: AccrualStartType,
+    #[serde(default = "default_create_timeoff_accrual_level_frequency")]
     pub frequency: AccrualFrequency,
     #[serde(alias = "added_value")]
     pub added_value: Decimal,
     #[cfg_attr(feature = "openapi", schema(example = true))]
-    #[serde(alias = "is_added_based_on_worked_time")]
+    #[serde(default, alias = "is_added_based_on_worked_time")]
     pub is_added_based_on_worked_time: bool,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "maximum_leave")]
     pub maximum_leave: Option<Decimal>,
-    #[serde(alias = "action_with_lost_days")]
+    #[serde(default = "default_create_timeoff_accrual_level_action_with_lost_days", alias = "action_with_lost_days")]
     pub action_with_lost_days: AccrualLostDaysAction,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "postponed_max_days")]
     pub postponed_max_days: Option<Decimal>,
+}
+
+fn default_create_timeoff_accrual_level_start_type() -> AccrualStartType {
+    AccrualStartType::Years
+}
+
+fn default_create_timeoff_accrual_level_frequency() -> AccrualFrequency {
+    AccrualFrequency::Monthly
+}
+
+fn default_create_timeoff_accrual_level_action_with_lost_days() -> AccrualLostDaysAction {
+    AccrualLostDaysAction::Nothing
 }
 
 // =============================================================================
@@ -119,12 +132,12 @@ pub struct PatchTimeoffAccrualLevelDto {
     #[cfg_attr(feature = "openapi", schema(example = true))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "is_added_based_on_worked_time")]
     pub is_added_based_on_worked_time: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "maximum_leave")]
-    pub maximum_leave: Option<Decimal>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "maximum_leave")]
+    pub maximum_leave: Option<Option<Decimal>>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "action_with_lost_days")]
     pub action_with_lost_days: Option<AccrualLostDaysAction>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "postponed_max_days")]
-    pub postponed_max_days: Option<Decimal>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "postponed_max_days")]
+    pub postponed_max_days: Option<Option<Decimal>>,
 }
 
 impl PatchTimeoffAccrualLevelDto {
@@ -319,12 +332,4 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffAccrualLevelDto> for TimeoffAccr
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to TimeoffAccrualLevel here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

@@ -236,6 +236,13 @@ impl super::Entity for TimeoffBalance {
 }
 
 impl backbone_core::PersistentEntity for TimeoffBalance {
+    fn references() -> &'static [backbone_core::Reference] {
+        const REFERENCES: &[backbone_core::Reference] = &[
+            backbone_core::Reference::new("timeoff_type_id", "timeoff.timeoff_types", "id"),
+            backbone_core::Reference::new("accrual_plan_id", "timeoff.timeoff_accrual_plans", "id"),
+        ];
+        REFERENCES
+    }
     fn entity_id(&self) -> String {
         self.id.to_string()
     }

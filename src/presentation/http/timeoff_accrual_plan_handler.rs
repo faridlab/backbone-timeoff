@@ -80,6 +80,13 @@ impl axum::response::IntoResponse for TimeoffAccrualPlanError {
 // Route Configuration
 // =============================================================================
 
+/// The permissions this entity's generic routes require: `timeoff_accrual_plan:<action>` for `read`, `create`,
+/// `update`, `delete`, `restore` and `purge`, with any rename the schema's `requires:` declares.
+pub fn timeoff_accrual_plan_permissions() -> backbone_core::http::CrudPermissions {
+    backbone_core::http::CrudPermissions::new("timeoff_accrual_plan")
+        .in_module("timeoff")
+}
+
 /// Create Axum router with all 16 Backbone endpoints for TimeoffAccrualPlan.
 ///
 /// # Routes
@@ -109,21 +116,23 @@ impl axum::response::IntoResponse for TimeoffAccrualPlanError {
 /// let router = create_timeoff_accrual_plan_routes(service);
 /// ```
 pub fn create_timeoff_accrual_plan_routes(service: Arc<TimeoffAccrualPlanService>) -> Router {
-    BackboneCrudHandler::<TimeoffAccrualPlanService, TimeoffAccrualPlan, CreateTimeoffAccrualPlanDto, UpdateTimeoffAccrualPlanDto, TimeoffAccrualPlanResponseDto>::routes(
+    BackboneCrudHandler::<TimeoffAccrualPlanService, TimeoffAccrualPlan, CreateTimeoffAccrualPlanDto, UpdateTimeoffAccrualPlanDto, TimeoffAccrualPlanResponseDto>::routes_guarded(
         service,
         "/timeoff_accrual_plans",
+        timeoff_accrual_plan_permissions(),
     )
 }
 
 /// Create Axum router with only the read (GET) endpoints for TimeoffAccrualPlan.
 ///
-/// Safe for public, unauthenticated exposure (e.g., reference data).
+/// Each route requires the entity's `read` permission, so it needs an authenticated caller.
 /// Mutations must be served separately via `create_timeoff_accrual_plan_write_routes`,
 /// typically wrapped in an auth middleware layer.
 pub fn create_timeoff_accrual_plan_read_routes(service: Arc<TimeoffAccrualPlanService>) -> Router {
-    BackboneCrudHandler::<TimeoffAccrualPlanService, TimeoffAccrualPlan, CreateTimeoffAccrualPlanDto, UpdateTimeoffAccrualPlanDto, TimeoffAccrualPlanResponseDto>::read_routes(
+    BackboneCrudHandler::<TimeoffAccrualPlanService, TimeoffAccrualPlan, CreateTimeoffAccrualPlanDto, UpdateTimeoffAccrualPlanDto, TimeoffAccrualPlanResponseDto>::read_routes_guarded(
         service,
         "/timeoff_accrual_plans",
+        timeoff_accrual_plan_permissions(),
     )
 }
 
@@ -139,9 +148,10 @@ pub fn create_timeoff_accrual_plan_read_routes(service: Arc<TimeoffAccrualPlanSe
 /// service (e.g. a command router over its domain engine), serve THAT instead
 /// for any mutation that must respect domain rules.
 pub fn create_timeoff_accrual_plan_write_routes(service: Arc<TimeoffAccrualPlanService>) -> Router {
-    BackboneCrudHandler::<TimeoffAccrualPlanService, TimeoffAccrualPlan, CreateTimeoffAccrualPlanDto, UpdateTimeoffAccrualPlanDto, TimeoffAccrualPlanResponseDto>::write_routes(
+    BackboneCrudHandler::<TimeoffAccrualPlanService, TimeoffAccrualPlan, CreateTimeoffAccrualPlanDto, UpdateTimeoffAccrualPlanDto, TimeoffAccrualPlanResponseDto>::write_routes_guarded(
         service,
         "/timeoff_accrual_plans",
+        timeoff_accrual_plan_permissions(),
     )
 }
 

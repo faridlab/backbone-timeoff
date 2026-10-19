@@ -44,6 +44,7 @@ pub struct CreateTimeoffRequestDto {
     pub date_end: NaiveDate,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub note: Option<String>,
+    #[serde(default = "default_create_timeoff_request_part")]
     pub part: LeavePart,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "attachment_file_id")]
     pub attachment_file_id: Option<Uuid>,
@@ -55,6 +56,10 @@ pub struct CreateTimeoffRequestDto {
     pub approval_request_id: Option<Uuid>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "note_reject")]
     pub note_reject: Option<String>,
+}
+
+fn default_create_timeoff_request_part() -> LeavePart {
+    LeavePart::Full
 }
 
 // =============================================================================
@@ -121,20 +126,20 @@ pub struct PatchTimeoffRequestDto {
     #[cfg_attr(feature = "openapi", schema(example = "2024-01-01"))]
     #[serde(skip_serializing_if = "Option::is_none", alias = "date_end")]
     pub date_end: Option<NaiveDate>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note: Option<String>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option")]
+    pub note: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub part: Option<LeavePart>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "attachment_file_id")]
-    pub attachment_file_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "attachment_note")]
-    pub attachment_note: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "approval_employee_id")]
-    pub approval_employee_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "approval_request_id")]
-    pub approval_request_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "note_reject")]
-    pub note_reject: Option<String>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "attachment_file_id")]
+    pub attachment_file_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "attachment_note")]
+    pub attachment_note: Option<Option<String>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "approval_employee_id")]
+    pub approval_employee_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "approval_request_id")]
+    pub approval_request_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "note_reject")]
+    pub note_reject: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<TimeoffRequestStatus>,
 }
@@ -342,12 +347,4 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffRequestDto> for TimeoffRequest {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to TimeoffRequest here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

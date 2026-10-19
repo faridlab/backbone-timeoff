@@ -1893,7 +1893,6 @@ components:
       required:
         - timeoff_type_id
         - name
-        - metadata
       properties:
         timeoff_type_id:
           type: string
@@ -1901,15 +1900,12 @@ components:
         name:
           type: string
           maxLength: 120
-        metadata:
-          type: object
 
     UpdateTimeoffAccrualPlanRequest:
       type: object
       required:
         - timeoff_type_id
         - name
-        - metadata
       properties:
         timeoff_type_id:
           type: string
@@ -1917,8 +1913,6 @@ components:
         name:
           type: string
           maxLength: 120
-        metadata:
-          type: object
 
     PatchTimeoffAccrualPlanRequest:
       type: object
@@ -1929,8 +1923,6 @@ components:
         name:
           type: string
           maxLength: 120
-        metadata:
-          type: object
 
     TimeoffAccrualPlanList:
       type: object
@@ -2004,13 +1996,7 @@ components:
       required:
         - plan_id
         - sequence
-        - start_count
-        - start_type
-        - frequency
         - added_value
-        - is_added_based_on_worked_time
-        - action_with_lost_days
-        - metadata
       properties:
         plan_id:
           type: string
@@ -2036,8 +2022,6 @@ components:
         postponed_max_days:
           nullable: true
           type: string
-        metadata:
-          type: object
 
     UpdateTimeoffAccrualLevelRequest:
       type: object
@@ -2050,7 +2034,6 @@ components:
         - added_value
         - is_added_based_on_worked_time
         - action_with_lost_days
-        - metadata
       properties:
         plan_id:
           type: string
@@ -2076,8 +2059,6 @@ components:
         postponed_max_days:
           nullable: true
           type: string
-        metadata:
-          type: object
 
     PatchTimeoffAccrualLevelRequest:
       type: object
@@ -2106,8 +2087,6 @@ components:
         postponed_max_days:
           nullable: true
           type: string
-        metadata:
-          type: object
 
     TimeoffAccrualLevelList:
       type: object
@@ -2192,9 +2171,6 @@ components:
         - employee_id
         - period
         - allocated
-        - used
-        - carried_over
-        - metadata
       properties:
         timeoff_type_id:
           type: string
@@ -2231,8 +2207,6 @@ components:
           nullable: true
           type: string
           format: date-time
-        metadata:
-          type: object
 
     UpdateTimeoffBalanceRequest:
       type: object
@@ -2243,7 +2217,6 @@ components:
         - allocated
         - used
         - carried_over
-        - metadata
       properties:
         timeoff_type_id:
           type: string
@@ -2280,8 +2253,6 @@ components:
           nullable: true
           type: string
           format: date-time
-        metadata:
-          type: object
 
     PatchTimeoffBalanceRequest:
       type: object
@@ -2321,8 +2292,6 @@ components:
           nullable: true
           type: string
           format: date-time
-        metadata:
-          type: object
 
     TimeoffBalanceList:
       type: object
@@ -2412,9 +2381,6 @@ components:
         - employee_id
         - date_start
         - date_end
-        - part
-        - status
-        - metadata
       properties:
         timeoff_type_id:
           type: string
@@ -2454,10 +2420,6 @@ components:
           nullable: true
           type: string
           maxLength: 1000
-        status:
-          type: string
-        metadata:
-          type: object
 
     UpdateTimeoffRequestRequest:
       type: object
@@ -2468,7 +2430,6 @@ components:
         - date_end
         - part
         - status
-        - metadata
       properties:
         timeoff_type_id:
           type: string
@@ -2510,8 +2471,6 @@ components:
           maxLength: 1000
         status:
           type: string
-        metadata:
-          type: object
 
     PatchTimeoffRequestRequest:
       type: object
@@ -2556,8 +2515,6 @@ components:
           maxLength: 1000
         status:
           type: string
-        metadata:
-          type: object
 
     TimeoffRequestList:
       type: object
@@ -2615,9 +2572,6 @@ components:
       type: object
       required:
         - name
-        - is_paid
-        - allow_carry_forward
-        - metadata
       properties:
         name:
           type: string
@@ -2633,8 +2587,6 @@ components:
         max_days_per_request:
           nullable: true
           type: string
-        metadata:
-          type: object
 
     UpdateTimeoffTypeRequest:
       type: object
@@ -2642,7 +2594,6 @@ components:
         - name
         - is_paid
         - allow_carry_forward
-        - metadata
       properties:
         name:
           type: string
@@ -2658,8 +2609,6 @@ components:
         max_days_per_request:
           nullable: true
           type: string
-        metadata:
-          type: object
 
     PatchTimeoffTypeRequest:
       type: object
@@ -2678,8 +2627,6 @@ components:
         max_days_per_request:
           nullable: true
           type: string
-        metadata:
-          type: object
 
     TimeoffTypeList:
       type: object

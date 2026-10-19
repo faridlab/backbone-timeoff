@@ -38,6 +38,7 @@ pub struct CreateTimeoffBalanceDto {
     #[cfg_attr(feature = "openapi", schema(example = "example"))]
     pub period: String,
     pub allocated: Decimal,
+    #[serde(default)]
     pub used: Decimal,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "accrual_plan_id")]
     pub accrual_plan_id: Option<Uuid>,
@@ -47,7 +48,7 @@ pub struct CreateTimeoffBalanceDto {
     pub date_to: Option<NaiveDate>,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "last_accrual_at")]
     pub last_accrual_at: Option<DateTime<Utc>>,
-    #[serde(alias = "carried_over")]
+    #[serde(default, alias = "carried_over")]
     pub carried_over: Decimal,
     #[serde(default, skip_serializing_if = "Option::is_none", alias = "expired_at")]
     pub expired_at: Option<DateTime<Utc>>,
@@ -114,18 +115,18 @@ pub struct PatchTimeoffBalanceDto {
     pub allocated: Option<Decimal>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub used: Option<Decimal>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "accrual_plan_id")]
-    pub accrual_plan_id: Option<Uuid>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "date_from")]
-    pub date_from: Option<NaiveDate>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "date_to")]
-    pub date_to: Option<NaiveDate>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "last_accrual_at")]
-    pub last_accrual_at: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "accrual_plan_id")]
+    pub accrual_plan_id: Option<Option<Uuid>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "date_from")]
+    pub date_from: Option<Option<NaiveDate>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "date_to")]
+    pub date_to: Option<Option<NaiveDate>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "last_accrual_at")]
+    pub last_accrual_at: Option<Option<DateTime<Utc>>>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "carried_over")]
     pub carried_over: Option<Decimal>,
-    #[serde(skip_serializing_if = "Option::is_none", alias = "expired_at")]
-    pub expired_at: Option<DateTime<Utc>>,
+    #[serde(default, deserialize_with = "crate::presentation::dto::double_option", alias = "expired_at")]
+    pub expired_at: Option<Option<DateTime<Utc>>>,
 }
 
 impl PatchTimeoffBalanceDto {
@@ -325,12 +326,4 @@ impl backbone_core::ApplyUpdateDto<UpdateTimeoffBalanceDto> for TimeoffBalance {
         Ok(self)
     }
 }
-
-// =============================================================================
-// Custom DTOs
-// =============================================================================
-
-// Add custom DTOs specific to TimeoffBalance here.
-// This section will be preserved during regeneration.
-// >>> END CUSTOM DTOs
 

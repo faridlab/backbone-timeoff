@@ -81,6 +81,13 @@ impl axum::response::IntoResponse for TimeoffAccrualLevelError {
 // Route Configuration
 // =============================================================================
 
+/// The permissions this entity's generic routes require: `timeoff_accrual_level:<action>` for `read`, `create`,
+/// `update`, `delete`, `restore` and `purge`, with any rename the schema's `requires:` declares.
+pub fn timeoff_accrual_level_permissions() -> backbone_core::http::CrudPermissions {
+    backbone_core::http::CrudPermissions::new("timeoff_accrual_level")
+        .in_module("timeoff")
+}
+
 /// Create Axum router with all 16 Backbone endpoints for TimeoffAccrualLevel.
 ///
 /// # Routes
@@ -110,21 +117,23 @@ impl axum::response::IntoResponse for TimeoffAccrualLevelError {
 /// let router = create_timeoff_accrual_level_routes(service);
 /// ```
 pub fn create_timeoff_accrual_level_routes(service: Arc<TimeoffAccrualLevelService>) -> Router {
-    BackboneCrudHandler::<TimeoffAccrualLevelService, TimeoffAccrualLevel, CreateTimeoffAccrualLevelDto, UpdateTimeoffAccrualLevelDto, TimeoffAccrualLevelResponseDto>::routes(
+    BackboneCrudHandler::<TimeoffAccrualLevelService, TimeoffAccrualLevel, CreateTimeoffAccrualLevelDto, UpdateTimeoffAccrualLevelDto, TimeoffAccrualLevelResponseDto>::routes_guarded(
         service,
         "/timeoff_accrual_levels",
+        timeoff_accrual_level_permissions(),
     )
 }
 
 /// Create Axum router with only the read (GET) endpoints for TimeoffAccrualLevel.
 ///
-/// Safe for public, unauthenticated exposure (e.g., reference data).
+/// Each route requires the entity's `read` permission, so it needs an authenticated caller.
 /// Mutations must be served separately via `create_timeoff_accrual_level_write_routes`,
 /// typically wrapped in an auth middleware layer.
 pub fn create_timeoff_accrual_level_read_routes(service: Arc<TimeoffAccrualLevelService>) -> Router {
-    BackboneCrudHandler::<TimeoffAccrualLevelService, TimeoffAccrualLevel, CreateTimeoffAccrualLevelDto, UpdateTimeoffAccrualLevelDto, TimeoffAccrualLevelResponseDto>::read_routes(
+    BackboneCrudHandler::<TimeoffAccrualLevelService, TimeoffAccrualLevel, CreateTimeoffAccrualLevelDto, UpdateTimeoffAccrualLevelDto, TimeoffAccrualLevelResponseDto>::read_routes_guarded(
         service,
         "/timeoff_accrual_levels",
+        timeoff_accrual_level_permissions(),
     )
 }
 
@@ -140,9 +149,10 @@ pub fn create_timeoff_accrual_level_read_routes(service: Arc<TimeoffAccrualLevel
 /// service (e.g. a command router over its domain engine), serve THAT instead
 /// for any mutation that must respect domain rules.
 pub fn create_timeoff_accrual_level_write_routes(service: Arc<TimeoffAccrualLevelService>) -> Router {
-    BackboneCrudHandler::<TimeoffAccrualLevelService, TimeoffAccrualLevel, CreateTimeoffAccrualLevelDto, UpdateTimeoffAccrualLevelDto, TimeoffAccrualLevelResponseDto>::write_routes(
+    BackboneCrudHandler::<TimeoffAccrualLevelService, TimeoffAccrualLevel, CreateTimeoffAccrualLevelDto, UpdateTimeoffAccrualLevelDto, TimeoffAccrualLevelResponseDto>::write_routes_guarded(
         service,
         "/timeoff_accrual_levels",
+        timeoff_accrual_level_permissions(),
     )
 }
 
